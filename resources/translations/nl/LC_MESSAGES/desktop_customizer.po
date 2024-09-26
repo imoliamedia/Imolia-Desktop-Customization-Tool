@@ -1,0 +1,26 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Desktop Customizer 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: nl\n"
+
+msgid "Toggle Overlay"
+msgstr "Overlay In-/Uitschakelen"
+
+msgid "Settings"
+msgstr "Instellingen"
+
+msgid "Exit"
+msgstr "Afsluiten"
+
+msgid "Language:"
+msgstr "Taal:"
+
+msgid "Start with Windows"
+msgstr "Starten met Windows"
+
+msgid "Save"
+msgstr "Opslaan"
+
+msgid "Cancel"
+msgstr "Annuleren"
