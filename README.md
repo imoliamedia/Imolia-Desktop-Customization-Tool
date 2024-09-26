@@ -1,6 +1,6 @@
 # Desktop Customization Tool
 
-![Imolia Media Logo](path/to/logo.png)
+![Imolia Media Logo](https://www.imoliamedia.be/assets/img/favicon/android-chrome-192x192.png)
 
 A powerful, open-source desktop customization tool developed by Imolia Media.
 
