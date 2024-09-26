@@ -1,46 +1,47 @@
-# Gedragscode voor Bijdragers
+# Contributor Code of Conduct
 
-## Onze belofte
+## Our Pledge
 
-In het belang van het bevorderen van een open en welkomende omgeving, beloven wij als bijdragers en onderhouders om deelname aan ons project en onze gemeenschap een intimidatievrije ervaring te maken voor iedereen, ongeacht leeftijd, lichaamsgrootte, handicap, etniciteit, genderidentiteit en -expressie, ervaringsniveau, nationaliteit, persoonlijke verschijning, ras, religie, of seksuele identiteit en oriëntatie.
+In the interest of fostering an open and welcoming environment, we as contributors and maintainers pledge to make participation in our project and our community a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
-## Onze standaarden
+## Our Standards
 
-Voorbeelden van gedrag dat bijdraagt aan het creëren van een positieve omgeving zijn:
+Examples of behavior that contributes to creating a positive environment include:
 
-* Gebruik van verwelkomende en inclusieve taal
-* Respect tonen voor verschillende standpunten en ervaringen
-* Gracieus accepteren van constructieve kritiek
-* Focussen op wat het beste is voor de gemeenschap
-* Empathie tonen naar andere leden van de gemeenschap
+* Using welcoming and inclusive language
+* Being respectful of differing viewpoints and experiences
+* Gracefully accepting constructive criticism
+* Focusing on what is best for the community
+* Showing empathy towards other community members
 
-Voorbeelden van onaanvaardbaar gedrag door deelnemers zijn:
+Examples of unacceptable behavior by participants include:
 
-* Het gebruik van geseksualiseerde taal of beelden en ongewenste seksuele aandacht of avances
-* Trollen, beledigende/denigrerende opmerkingen en persoonlijke of politieke aanvallen
-* Openbare of privé intimidatie
-* Het publiceren van privéinformatie van anderen, zoals een fysiek of elektronisch adres, zonder expliciete toestemming
-* Ander gedrag dat redelijkerwijs als ongepast kan worden beschouwd in een professionele omgeving
+* The use of sexualized language or imagery and unwelcome sexual attention or advances
+* Trolling, insulting/derogatory comments, and personal or political attacks
+* Public or private harassment
+* Publishing others' private information, such as a physical or electronic address, without explicit permission
+* Other conduct which could reasonably be considered inappropriate in a professional setting
 
-## Onze verantwoordelijkheden
+## Our Responsibilities
 
-Projectbeheerders zijn verantwoordelijk voor het verduidelijken van de normen voor aanvaardbaar gedrag en worden verwacht passende en eerlijke corrigerende maatregelen te nemen in reactie op gevallen van onaanvaardbaar gedrag.
+Project maintainers are responsible for clarifying the standards of acceptable behavior and are expected to take appropriate and fair corrective action in response to any instances of unacceptable behavior.
 
-Projectbeheerders hebben het recht en de verantwoordelijkheid om opmerkingen, commits, code, wiki-bewerkingen, issues en andere bijdragen die niet in overeenstemming zijn met deze Gedragscode te verwijderen, bewerken of afwijzen, of om tijdelijk of permanent een bijdrager te verbannen voor ander gedrag dat zij ongepast, bedreigend, beledigend of schadelijk achten.
+Project maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned with this Code of Conduct, or to ban temporarily or permanently any contributor for other behaviors that they deem inappropriate, threatening, offensive, or harmful.
 
-## Bereik
+## Scope
 
-Deze Gedragscode is van toepassing zowel binnen projectruimten als in openbare ruimten wanneer een individu het project of zijn gemeenschap vertegenwoordigt. Voorbeelden van het vertegenwoordigen van een project of gemeenschap zijn het gebruik van een officieel project e-mailadres, het posten via een officieel social media account, of het optreden als een aangestelde vertegenwoordiger bij een online of offline evenement. De representatie van een project kan verder worden gedefinieerd en verduidelijkt door projectbeheerders.
+This Code of Conduct applies both within project spaces and in public spaces when an individual is representing the project or its community. Examples of representing a project or community include using an official project e-mail address, posting via an official social media account, or acting as an appointed representative at an online or offline event. Representation of a project may be further defined and clarified by project maintainers.
 
-## Handhaving
+## Enforcement
 
-Gevallen van misbruik, intimidatie of anderszins onaanvaardbaar gedrag kunnen worden gemeld door contact op te nemen met het projectteam op [E-MAILADRES INVOEGEN]. Alle klachten zullen worden beoordeeld en onderzocht en zullen resulteren in een reactie die noodzakelijk en passend wordt geacht voor de omstandigheden. Het projectteam is verplicht om vertrouwelijkheid te bewaren met betrekking tot de melder van een incident. Verdere details van specifiek handhavingsbeleid kunnen afzonderlijk worden gepost.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at [INSERT EMAIL ADDRESS]. All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the circumstances. The project team is obligated to maintain confidentiality with regard to the reporter of an incident. Further details of specific enforcement policies may be posted separately.
 
-Projectbeheerders die de Gedragscode niet te goeder trouw naleven of handhaven, kunnen tijdelijke of permanente repercussies ondervinden, zoals bepaald door andere leden van de projectleiding.
+Project maintainers who do not follow or enforce the Code of Conduct in good faith may face temporary or permanent repercussions as determined by other members of the project’s leadership.
 
-## Attributie
+## Attribution
 
-Deze Gedragscode is aangepast van het [Contributor Covenant][homepage], versie 1.4, beschikbaar op [http://contributor-covenant.org/version/1/4][version]
+This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 1.4, available at [http://contributor-covenant.org/version/1/4][version].
 
-[homepage]: http://contributor-covenant.org
-[version]: http://contributor-covenant.org/version/1/4/
+[homepage]: http://contributor-covenant.org  
+[version]: http://contributor-covenant.org/version/1/4
+
