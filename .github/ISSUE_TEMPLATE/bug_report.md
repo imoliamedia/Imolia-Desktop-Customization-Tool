@@ -1,31 +1,31 @@
 ---
 name: Bug report
-about: Creëer een rapport om ons te helpen verbeteren
+about: Create a report to help us improve
 title: '[BUG] '
 labels: bug
 assignees: ''
 
 ---
 
-**Beschrijf de bug**
-Een duidelijke en beknopte beschrijving van wat de bug is.
+**Describe the bug**
+A clear and concise description of what the bug is.
 
-**Om te reproduceren**
-Stappen om het gedrag te reproduceren:
-1. Ga naar '...'
-2. Klik op '....'
-3. Scroll naar beneden naar '....'
-4. Zie error
+**To Reproduce**
+Steps to reproduce the behavior:
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
 
-**Verwacht gedrag**
-Een duidelijke en beknopte beschrijving van wat je verwachtte dat er zou gebeuren.
+**Expected behavior**
+A clear and concise description of what you expected to happen.
 
 **Screenshots**
-Voeg indien van toepassing screenshots toe om je probleem uit te leggen.
+If applicable, add screenshots to help explain your problem.
 
-**Desktop (vul de volgende informatie in):**
- - OS: [bijv. Windows 10]
- - Versie [bijv. 22H2]
+**Desktop (please complete the following information):**
+ - OS: [e.g. Windows 10]
+ - Version [e.g. 22H2]
 
-**Aanvullende context**
-Voeg hier eventuele andere context over het probleem toe.
+**Additional context**
+Add any other context about the problem here.
