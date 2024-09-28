@@ -25,6 +25,16 @@ By contributing to this project, you agree that your contributions will be licen
 - Update the README.md if your feature adds new functionality that users should know about.
 - Ensure your code is compatible with the GPL v3 license.
 
+## Contributing Widgets
+
+We encourage the community to contribute new widgets to enrich the Imolia Desktop Customizer. To contribute a widget:
+
+1. Develop your widget following the guidelines in our Widget Development Guide.
+2. Ensure your widget follows the required directory structure and includes a README and screenshots.
+3. Add your widget to the `widgets` directory in your forked repository.
+4. Submit a pull request with your new widget.
+5. Our team will review your submission. If approved, your widget will be added to the main repository.
+
 ## Reporting Bugs
 
 - Use the issue tracker to report bugs.

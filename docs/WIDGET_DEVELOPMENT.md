@@ -177,6 +177,21 @@ To add your widget to the Desktop Customization Tool:
 
 Widgets placed in this folder will be automatically detected and made available in the application's widget manager.
 
+## Submitting Your Widget for Inclusion
+
+If you've developed a widget that you believe would be valuable to other users, you can submit it for inclusion in the main Imolia Desktop Customizer repository:
+
+1. Ensure your widget follows all the guidelines outlined in this document.
+2. Fork the Imolia Desktop Customizer repository on GitHub.
+3. Add your widget to the `widgets` directory in your forked repository, following the structure outlined in the "Widget Basics" section.
+4. Create a pull request with your new widget.
+5. In the pull request description, provide a brief overview of your widget's functionality and any dependencies it may have.
+6. Our team will review your submission. We may provide feedback or request changes.
+7. If approved, your widget will be added to the main repository and will be available to all users in future releases.
+
+Please note that while we appreciate all contributions, we reserve the right to reject or request modifications to submitted widgets to ensure they meet our quality and security standards.
+
+
 ## Note on Configuration Files
 Each widget saves its configuration in a separate JSON file in the same directory as the widget. This ensures that each widget remains independent and can manage its own settings without relying on the main application.
 
