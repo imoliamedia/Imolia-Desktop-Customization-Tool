@@ -1,4 +1,4 @@
-# Desktop Customization Tool
+# Imolia Desktop Customization Tool
 
 ![Imolia Media Logo](https://www.imoliamedia.be/assets/img/favicon/android-chrome-192x192.png)
 
@@ -14,9 +14,18 @@ A powerful, open-source desktop customization tool developed by Imolia Media.
 
 ## Installation
 
+Option 1: Executable (Windows)
+
+1. Go to the Releases page.
+2. Download the latest DesktopCustomizer.zip file.
+3. Extract the contents of the ZIP file.
+4. Run DesktopCustomizer.exe.
+
+Option 2: From Source
+
 1. Clone this repository:
    ```
-   git clone https://github.com/ImolaMedia/desktop-customization-tool.git
+   git clone https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool.git
    ```
 
 2. Navigate to the project directory:
@@ -49,7 +58,7 @@ Interested in creating your own widgets? Check out our [Widget Development Guide
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## About Imolia Media
 

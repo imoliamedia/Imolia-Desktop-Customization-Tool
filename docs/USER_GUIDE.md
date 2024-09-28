@@ -1,4 +1,4 @@
-# User Guide for Desktop Customization Tool
+# User Guide for Imolia Desktop Customization Tool
 
 ## Table of Contents
 1. Installation

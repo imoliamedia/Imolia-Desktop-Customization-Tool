@@ -1,10 +1,91 @@
 {
-    "language": "nl",
-    "start_with_windows": false,
+    "language": "en",
+    "start_with_windows": true,
     "overlay_geometry": [
         100,
         100,
         300,
         200
+    ],
+    "clock_font_size": 60,
+    "clock_color": "#ff0000",
+    "clock_time_format": "hh:mm",
+    "active_widgets": [
+        "clock_widget",
+        "system_monitor_widget",
+        "todo_widget"
+    ],
+    "widget_ClockWidget_position": [
+        461,
+        215
+    ],
+    "widget_SystemMonitorWidget_position": [
+        824,
+        501
+    ],
+    "widget_systemmonitorwidget_position": [
+        1153,
+        638
+    ],
+    "widget_clockwidget_position": [
+        -368,
+        -115
+    ],
+    "widget_clockwidget_config": {
+        "size": [
+            3376,
+            1335
+        ],
+        "color": "#ff0000",
+        "time_format": "hh:mm"
+    },
+    "widget_clockwidget_size": [
+        3376,
+        1335
+    ],
+    "widget_systemmonitorwidget_size": [
+        280,
+        153
+    ],
+    "widget_clock_widget_position": [
+        -368,
+        -115
+    ],
+    "widget_clock_widget_size": [
+        3376,
+        1335
+    ],
+    "widget_system_monitor_widget_position": [
+        1153,
+        638
+    ],
+    "widget_system_monitor_widget_size": [
+        280,
+        153
+    ],
+    "widget_systemmonitorwidget_config": {
+        "color": "#aa00ff",
+        "update_interval": 1000
+    },
+    "widget_clock_widget_config": {
+        "size": [
+            3376,
+            1335
+        ],
+        "color": "#ff0000",
+        "time_format": "hh:mm"
+    },
+    "widget_system_monitor_widget_config": {
+        "color": "#aa00ff",
+        "update_interval": 1000
+    },
+    "widget_todowidget_size": [
+        250,
+        400
+    ],
+    "widget_todowidget_config": {},
+    "widget_todowidget_position": [
+        2073,
+        532
     ]
 }

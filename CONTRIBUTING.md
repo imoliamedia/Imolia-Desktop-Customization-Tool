@@ -2,6 +2,10 @@
 
 We welcome contributions to the Desktop Customization Tool! Here are some guidelines to help you get started.
 
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the GNU General Public License v3.0. Make sure you have read and understood the [LICENSE](LICENSE) file.
+
 ## Code Style
 
 - Follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code.
@@ -19,6 +23,7 @@ We welcome contributions to the Desktop Customization Tool! Here are some guidel
 
 - If you're adding a new feature, consider also adding appropriate unit tests.
 - Update the README.md if your feature adds new functionality that users should know about.
+- Ensure your code is compatible with the GPL v3 license.
 
 ## Reporting Bugs
 

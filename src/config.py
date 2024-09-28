@@ -13,17 +13,5 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import gettext
-import os
-
-def setup_translations(language):
-    localedir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', '..', 'resources', 'translations')
-    translate = gettext.translation('desktop_customizer', localedir, languages=[language], fallback=True)
-    return translate.gettext
-
-# Global translation function
-_ = setup_translations('en')  # Default to English
-
-def update_language(language):
-    global _
-    _ = setup_translations(language)
+APP_NAME = "Imolia Desktop Customizer"
+WIDGETS_FOLDER_NAME = f"{APP_NAME} Widgets"
