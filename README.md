@@ -8,7 +8,6 @@ A powerful, open-source desktop customization tool developed by Imolia Media.
 
 - Customizable overlay for your desktop
 - Widget system for easy extensibility
-- Multi-language support
 - System tray integration
 - User-friendly settings interface
 

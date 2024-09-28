@@ -17,7 +17,6 @@ from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtCore import QCoreApplication
 from src.gui.settings_window import SettingsWindow
 from src.config import APP_NAME
-from src.utils.translation import _
 
 class SystemTrayIcon(QSystemTrayIcon):
     def __init__(self, icon, overlay, settings):
@@ -32,15 +31,15 @@ class SystemTrayIcon(QSystemTrayIcon):
     def initUI(self):
         menu = QMenu()
 
-        toggle_overlay = QAction(_("Toggle Overlay"), self)
+        toggle_overlay = QAction(("Toggle Overlay"), self)
         toggle_overlay.triggered.connect(self.toggle_overlay)
         menu.addAction(toggle_overlay)
 
-        settings_action = QAction(_("Settings"), self)
+        settings_action = QAction(("Settings"), self)
         settings_action.triggered.connect(self.open_settings)
         menu.addAction(settings_action)
 
-        exit_action = QAction(_("Exit"), self)
+        exit_action = QAction(("Exit"), self)
         exit_action.triggered.connect(QCoreApplication.instance().quit)
         menu.addAction(exit_action)
 

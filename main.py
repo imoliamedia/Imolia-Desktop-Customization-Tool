@@ -9,7 +9,6 @@ from src.config import APP_NAME
 from src.core.tray_icon import SystemTrayIcon
 from src.utils.settings import Settings
 from src.utils.logger import setup_logger
-from src.utils.translation import update_language
 
 def main():
     # Initialize application
@@ -21,9 +20,6 @@ def main():
     # Load settings (for application-wide settings, not widget-specific)
     settings = Settings()
     
-    # Set language
-    update_language(settings.get('language', 'en'))
-
     # Create and show overlay
     overlay = Overlay()
     overlay.initUI()
