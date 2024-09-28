@@ -28,8 +28,6 @@ class Settings:
                 self.settings = json.load(f)
         else:
             self.settings = {
-                'language': 'en',
-                'start_with_windows': False,
                 'overlay_geometry': (100, 100, 300, 200)
             }
             self.save()

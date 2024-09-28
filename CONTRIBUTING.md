@@ -41,10 +41,4 @@ We encourage the community to contribute new widgets to enrich the Imolia Deskto
 - Describe the bug in detail, including steps to reproduce it.
 - Include information about your operating system and Python version.
 
-## Adding Translations
-
-- If you're adding a new language, create a new .po file in the `resources/translations` directory.
-- If you're updating an existing translation, modify the appropriate .po file.
-- Make sure to compile the .po files to .mo files before submitting your changes.
-
 Thank you for contributing to the Desktop Customization Tool!
