@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QDialog, QLabel, QSpinBox, QColorDialog, QPushButton, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QDialog, QLabel, QSpinBox, QColorDialog, QPushButton, QHBoxLayout, QGroupBox
 from PyQt5.QtCore import Qt, QPoint, QSize, QEvent
 from PyQt5.QtGui import QCursor, QColor, QResizeEvent, QPainter, QPen, QBrush
 
@@ -103,37 +103,68 @@ class DraggableWidget(QWidget):
             self.update()
 
     def openSettings(self):
-        # Deze methode moet worden overschreven door kindklassen
-        pass
+        dialog = WidgetSettingsDialog(self)
+        if dialog.exec_():
+            self.updateConfig(dialog.get_config())
 
 class WidgetSettingsDialog(QDialog):
     def __init__(self, widget, parent=None):
         super().__init__(parent)
         self.widget = widget
+        self.setWindowTitle(f"{self.widget.__class__.__name__} Instellingen")
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Widget Instellingen")
         layout = QVBoxLayout()
+        
+        self.add_appearance_section(layout)
+        self.add_behavior_section(layout)
+        self.add_custom_section(layout)
+        
+        button_layout = QHBoxLayout()
+        save_button = QPushButton("Opslaan")
+        save_button.clicked.connect(self.save_settings)
+        cancel_button = QPushButton("Annuleren")
+        cancel_button.clicked.connect(self.reject)
+        button_layout.addWidget(save_button)
+        button_layout.addWidget(cancel_button)
+        
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
 
+    def add_appearance_section(self, layout):
+        appearance_group = QGroupBox("Uiterlijk")
+        appearance_layout = QVBoxLayout()
+        
         color_layout = QHBoxLayout()
         color_layout.addWidget(QLabel("Kleur:"))
         self.color_button = QPushButton()
         self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', 'white')};")
         self.color_button.clicked.connect(self.choose_color)
         color_layout.addWidget(self.color_button)
-        layout.addLayout(color_layout)
+        appearance_layout.addLayout(color_layout)
+        
+        appearance_group.setLayout(appearance_layout)
+        layout.addWidget(appearance_group)
 
-        button_layout = QHBoxLayout()
-        save_button = QPushButton("Opslaan")
-        save_button.clicked.connect(self.save_settings)
-        button_layout.addWidget(save_button)
-        cancel_button = QPushButton("Annuleren")
-        cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_button)
-        layout.addLayout(button_layout)
+    def add_behavior_section(self, layout):
+        behavior_group = QGroupBox("Gedrag")
+        behavior_layout = QVBoxLayout()
+        
+        update_layout = QHBoxLayout()
+        update_layout.addWidget(QLabel("Update interval (seconden):"))
+        self.update_interval = QSpinBox()
+        self.update_interval.setRange(1, 3600)
+        self.update_interval.setValue(self.widget.config.get('update_interval', 60))
+        update_layout.addWidget(self.update_interval)
+        behavior_layout.addLayout(update_layout)
+        
+        behavior_group.setLayout(behavior_layout)
+        layout.addWidget(behavior_group)
 
-        self.setLayout(layout)
+    def add_custom_section(self, layout):
+        # Deze methode kan door specifieke widgets worden overschreven
+        pass
 
     def choose_color(self):
         color = QColorDialog.getColor()
@@ -148,4 +179,5 @@ class WidgetSettingsDialog(QDialog):
     def get_config(self):
         return {
             'color': self.color_button.palette().button().color().name(),
+            'update_interval': self.update_interval.value()
         }

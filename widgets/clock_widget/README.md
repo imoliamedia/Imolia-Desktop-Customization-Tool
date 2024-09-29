@@ -9,6 +9,7 @@ The Clock Widget displays the current time on your desktop.
 - Displays current time
 - Customizable time format (12-hour or 24-hour)
 - Adjustable font color
+- Customizable font family and style
 - Resizable
 
 ## Configuration
@@ -22,6 +23,8 @@ You can configure the Clock Widget through the application settings:
 5. In the settings dialog, you can adjust:
    - Time format
    - Font color
+   - Font family
+   - Font style (Normal, Bold, Italic, or Bold Italic)
 
 ## Usage Tips
 

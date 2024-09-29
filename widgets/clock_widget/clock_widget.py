@@ -1,6 +1,7 @@
 import json
 import os
-from PyQt5.QtWidgets import QVBoxLayout, QLabel, QSizeGrip, QDialog, QSpinBox, QColorDialog, QPushButton, QHBoxLayout, QComboBox
+from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QSizeGrip, QDialog, QSpinBox, QColorDialog, 
+                             QPushButton, QHBoxLayout, QComboBox, QGroupBox, QFontComboBox)
 from PyQt5.QtCore import QTimer, QTime, Qt, QSize
 from PyQt5.QtGui import QFont, QResizeEvent, QColor
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
@@ -19,7 +20,9 @@ class ClockWidget(DraggableWidget):
         return {
             'color': 'white',
             'time_format': 'hh:mm:ss',
-            'size': (250, 100)
+            'size': (250, 100),
+            'font_family': 'Arial',
+            'font_style': 'Normal'
         }
 
     def save_config(self):
@@ -58,16 +61,24 @@ class ClockWidget(DraggableWidget):
     def updateStyle(self):
         color = self.config.get('color', 'white')
         self.time_label.setStyleSheet(f"color: {color};")
-        self.adjustFontSize()
+        self.adjustFont()
 
-    def adjustFontSize(self):
-        font = self.time_label.font()
+    def adjustFont(self):
+        font = QFont(self.config.get('font_family', 'Arial'))
         font.setPixelSize(int(self.height() * 0.5))  # 50% van de hoogte
+        font_style = self.config.get('font_style', 'Normal')
+        if font_style == 'Bold':
+            font.setBold(True)
+        elif font_style == 'Italic':
+            font.setItalic(True)
+        elif font_style == 'Bold Italic':
+            font.setBold(True)
+            font.setItalic(True)
         self.time_label.setFont(font)
 
     def resizeEvent(self, event: QResizeEvent):
         super().resizeEvent(event)
-        self.adjustFontSize()
+        self.adjustFont()
         self.config['size'] = (self.width(), self.height())
         self.save_config()
 
@@ -87,22 +98,47 @@ class ClockSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
         super().__init__(widget, parent)
 
-    def initUI(self):
-        super().initUI()
+    def add_custom_section(self, layout):
+        custom_group = QGroupBox("Clock Settings")
+        custom_layout = QVBoxLayout()
         
+        # Time format
         format_layout = QHBoxLayout()
         format_layout.addWidget(QLabel("Time format:"))
         self.format_combo = QComboBox()
         self.format_combo.addItems(['hh:mm', 'hh:mm:ss', 'hh:mm:ss ap'])
         self.format_combo.setCurrentText(self.widget.config.get('time_format', 'hh:mm:ss'))
         format_layout.addWidget(self.format_combo)
-        self.layout().insertLayout(2, format_layout)
+        custom_layout.addLayout(format_layout)
+        
+        # Font family
+        font_family_layout = QHBoxLayout()
+        font_family_layout.addWidget(QLabel("Font family:"))
+        self.font_family_combo = QFontComboBox()
+        self.font_family_combo.setCurrentFont(QFont(self.widget.config.get('font_family', 'Arial')))
+        font_family_layout.addWidget(self.font_family_combo)
+        custom_layout.addLayout(font_family_layout)
+
+        # Font style
+        font_style_layout = QHBoxLayout()
+        font_style_layout.addWidget(QLabel("Font style:"))
+        self.font_style_combo = QComboBox()
+        self.font_style_combo.addItems(['Normal', 'Bold', 'Italic', 'Bold Italic'])
+        self.font_style_combo.setCurrentText(self.widget.config.get('font_style', 'Normal'))
+        font_style_layout.addWidget(self.font_style_combo)
+        custom_layout.addLayout(font_style_layout)
+        
+        custom_group.setLayout(custom_layout)
+        layout.addWidget(custom_group)
 
     def get_config(self):
-        return {
-            'color': self.color_button.palette().button().color().name(),
-            'time_format': self.format_combo.currentText()
-        }
+        config = super().get_config()
+        config.update({
+            'time_format': self.format_combo.currentText(),
+            'font_family': self.font_family_combo.currentFont().family(),
+            'font_style': self.font_style_combo.currentText()
+        })
+        return config
 
 # Zorg ervoor dat de Widget klasse is gedefinieerd voor de loader
 Widget = ClockWidget

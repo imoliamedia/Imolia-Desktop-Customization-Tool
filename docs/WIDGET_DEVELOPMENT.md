@@ -121,17 +121,43 @@ Widget = MyCustomWidget
 - Use transparent backgrounds to blend with the desktop.
 - Adjust font sizes dynamically based on widget size.
 
-## 5. Making Your Widget Resizable and Draggable
+## 5. Widget Settings
+
+When developing a new widget, use the `WidgetSettingsDialog` as a base for your settings window:
+
+1. Create a new class that inherits from `WidgetSettingsDialog`.
+2. Override the `add_custom_section` method to add widget-specific settings.
+3. Adjust the `get_config` method to include widget-specific settings.
+
+Example:
+
+```python
+class MyWidgetSettingsDialog(WidgetSettingsDialog):
+    def add_custom_section(self, layout):
+        custom_group = QGroupBox("My Widget Settings")
+        custom_layout = QVBoxLayout()
+        
+        # Add your custom settings here
+        
+        custom_group.setLayout(custom_layout)
+        layout.addWidget(custom_group)
+
+    def get_config(self):
+        config = super().get_config()
+        # Add your custom settings to config here
+        return config
+
+## 6. Making Your Widget Resizable and Draggable
 - The `DraggableWidget` base class provides built-in functionality for resizing and dragging.
 - Implement `resizeEvent` to handle size changes and save the new size in your widget's configuration.
 - The widget's position is automatically saved when dragged.
 
-## 6. Implementing Regular Updates
+## 7. Implementing Regular Updates
 If your widget needs to update regularly (like a clock or system monitor):
 - Use a `QTimer` to trigger updates at set intervals.
 - Implement an update method (e.g., `update_widget`) to refresh the widget's content.
 
-## 7. Best Practices
+## 8. Best Practices
 - Keep your widget modular and self-contained.
 - Manage all widget-specific settings within the widget itself.
 - Use clear, descriptive variable names.
@@ -141,7 +167,7 @@ If your widget needs to update regularly (like a clock or system monitor):
 - Test your widget thoroughly in different scenarios (resizing, configuration changes, etc.).
 - Ensure your widget looks good on different desktop backgrounds by using appropriate colors and transparency.
 
-## 8. Adding Your Widget to the Application
+## 9. Adding Your Widget to the Application
 
 To add your widget to the Desktop Customization Tool:
 
