@@ -11,10 +11,12 @@ All widgets developed for this tool must be compatible with the GNU General Publ
 2. Creating Your First Widget
 3. Widget Configuration and Customization
 4. Styling Your Widget
-5. Making Your Widget Resizable and Draggable
-6. Implementing Regular Updates
-7. Best Practices
-8. Adding Your Widget to the Application
+5. Widget Settings
+6. Making Your Widget Resizable and Draggable
+7. Implementing Regular Updates
+8. Best Practices
+9. Adding Your Widget to the Application
+10. Submitting Your Widget for Inclusion
 
 ## 1. Widget Basics
 Widgets in our application are Python classes that inherit from `DraggableWidget`. This base class provides essential functionality such as dragging, resizing, and basic configuration management.
@@ -102,10 +104,13 @@ class MyCustomWidgetSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
         super().__init__(widget, parent)
 
+    def add_custom_section(self, layout):
+        # Add custom settings here
+
     def get_config(self):
-        return {
-            'color': self.color_button.palette().button().color().name(),
-        }
+        config = super().get_config()
+        # Add custom settings to config here
+        return config
 
 # Important: The class must be named 'Widget' for the loader to recognize it
 Widget = MyCustomWidget
@@ -122,7 +127,6 @@ Widget = MyCustomWidget
 - Adjust font sizes dynamically based on widget size.
 
 ## 5. Widget Settings
-
 When developing a new widget, use the `WidgetSettingsDialog` as a base for your settings window:
 
 1. Create a new class that inherits from `WidgetSettingsDialog`.
@@ -146,6 +150,7 @@ class MyWidgetSettingsDialog(WidgetSettingsDialog):
         config = super().get_config()
         # Add your custom settings to config here
         return config
+```
 
 ## 6. Making Your Widget Resizable and Draggable
 - The `DraggableWidget` base class provides built-in functionality for resizing and dragging.
@@ -168,7 +173,6 @@ If your widget needs to update regularly (like a clock or system monitor):
 - Ensure your widget looks good on different desktop backgrounds by using appropriate colors and transparency.
 
 ## 9. Adding Your Widget to the Application
-
 To add your widget to the Desktop Customization Tool:
 
 * Create a new Python file for your widget in the user's Documents folder, under the "Imolia Desktop Customizer Widgets" directory. 
@@ -203,8 +207,7 @@ To add your widget to the Desktop Customization Tool:
 
 Widgets placed in this folder will be automatically detected and made available in the application's widget manager.
 
-## Submitting Your Widget for Inclusion
-
+## 10. Submitting Your Widget for Inclusion
 If you've developed a widget that you believe would be valuable to other users, you can submit it for inclusion in the main Imolia Desktop Customizer repository:
 
 1. Ensure your widget follows all the guidelines outlined in this document.
@@ -217,9 +220,10 @@ If you've developed a widget that you believe would be valuable to other users, 
 
 Please note that while we appreciate all contributions, we reserve the right to reject or request modifications to submitted widgets to ensure they meet our quality and security standards.
 
-
 ## Note on Configuration Files
 Each widget saves its configuration in a separate JSON file in the same directory as the widget. This ensures that each widget remains independent and can manage its own settings without relying on the main application.
 
 ## Conclusion
 By following this guide, you can create custom, standalone widgets that seamlessly integrate with the Desktop Customization Tool. Remember to focus on functionality, user-friendliness, customizability, and performance in your widget design. Your widgets should be able to operate independently, managing their own configurations and adapting to user preferences. Always ensure your widget code complies with the GPL v3 license.
+
+
