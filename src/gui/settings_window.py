@@ -44,25 +44,41 @@ class SettingsWindow(QDialog):
         self.apply_styles()
 
     def setup_header(self):
-        header_layout = QHBoxLayout()
+        header_layout = QVBoxLayout()  # Gebruik een verticale layout om elementen onder elkaar te plaatsen
+
         self.logo_label = QLabel()
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "icons", "tray_icon.png")
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "logo.png")
         try:
             logo_pixmap = QPixmap(logo_path).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.logo_label.setPixmap(logo_pixmap)
         except:
             print(f"Could not load logo from {logo_path}")
+        
+        # Voeg het logo toe aan de layout
         header_layout.addWidget(self.logo_label)
+
+        # Voeg de titel van de app toe
         self.title_label = QLabel(APP_NAME)
         self.title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         header_layout.addWidget(self.title_label)
+
+        # Voeg de GitHub-link onder de titel toe
+        github_label = QLabel('<a href="https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/tree/main/widgets">Download widgets from GitHub</a>')
+        github_label.setOpenExternalLinks(True)  # Zorgt ervoor dat de link klikbaar is
+        header_layout.addWidget(github_label)
+
+        # Voeg een verticale stretch toe zodat de header compact blijft
         header_layout.addStretch()
+
+        # Voeg de header layout toe aan de hoofd layout
         self.main_layout.addLayout(header_layout)
-        
+
+        # Voeg hier een scheidingslijn toe (bijv. een lijn onder de header)
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
         self.main_layout.addWidget(line)
+
 
     def setup_tabs(self):
         self.tab_widget = QTabWidget()
