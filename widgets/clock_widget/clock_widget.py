@@ -1,3 +1,11 @@
+"""
+Clock Widget for Imolia Desktop Customizer
+
+Dependencies:
+PyQt5==5.15.6
+
+"""
+
 import json
 import os
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QSizeGrip, QDialog, QSpinBox, QColorDialog, 
@@ -60,12 +68,12 @@ class ClockWidget(DraggableWidget):
 
     def updateStyle(self):
         color = self.config.get('color', 'white')
-        self.time_label.setStyleSheet(f"color: {color};")
+        self.time_label.setStyleSheet(f"color: {color}; background-color: transparent;")
         self.adjustFont()
 
     def adjustFont(self):
         font = QFont(self.config.get('font_family', 'Arial'))
-        font.setPixelSize(int(self.height() * 0.5))  # 50% van de hoogte
+        font.setPixelSize(int(self.height() * 0.5))  # 50% of height
         font_style = self.config.get('font_style', 'Normal')
         if font_style == 'Bold':
             font.setBold(True)
@@ -80,6 +88,11 @@ class ClockWidget(DraggableWidget):
         super().resizeEvent(event)
         self.adjustFont()
         self.config['size'] = (self.width(), self.height())
+        self.save_config()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self.config['position'] = (self.x(), self.y())
         self.save_config()
 
     def updateConfig(self, new_config):
@@ -140,5 +153,5 @@ class ClockSettingsDialog(WidgetSettingsDialog):
         })
         return config
 
-# Zorg ervoor dat de Widget klasse is gedefinieerd voor de loader
+# Important: The Widget class must be named 'Widget' for the loader to recognize it
 Widget = ClockWidget

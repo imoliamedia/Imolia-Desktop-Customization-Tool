@@ -2,6 +2,8 @@
 
 This widget displays events from Google Calendar(s) on your desktop.
 
+![multiple Google Calendars](./screenshots/multiple-Google-Calendars.png)
+
 ## Features
 
 - Display upcoming events from multiple Google Calendars

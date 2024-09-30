@@ -15,25 +15,51 @@
 
 import os
 import importlib.util
+import sys
+import re
+from src.utils.venv_manager import VenvManager
+
+def parse_dependencies(file_path):
+    dependencies = []
+    with open(file_path, 'r') as file:
+        content = file.read()
+        match = re.search(r'"""[\s\S]*?Dependencies:([\s\S]*?)"""', content)
+        if match:
+            deps = match.group(1).strip().split('\n')
+            dependencies = [dep.strip() for dep in deps if dep.strip()]
+    return dependencies
 
 def load_widgets(widget_dir):
     widgets = {}
+    sys.path.append(widget_dir)  # Add widget directory to Python path
     for filename in os.listdir(widget_dir):
         if filename.endswith('.py') and filename != '__init__.py':
             module_name = filename[:-3]  # Remove .py extension
             module_path = os.path.join(widget_dir, filename)
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            dependencies = parse_dependencies(module_path)
             
-            # Look for the 'Widget' class in the module
-            if hasattr(module, 'Widget'):
-                widgets[module_name] = module.Widget
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                
+                if hasattr(module, 'Widget'):
+                    widgets[module_name] = {
+                        'class': module.Widget,
+                        'dependencies': dependencies
+                    }
+                else:
+                    print(f"Warning: {filename} does not contain a 'Widget' class.")
+            except Exception as e:
+                print(f"Error loading widget {filename}: {str(e)}")
+    
+    sys.path.remove(widget_dir)  # Remove widget directory from Python path
     return widgets
 
 class WidgetManager:
     def __init__(self, widget_dir):
         self.widget_dir = widget_dir
+        self.venv_manager = VenvManager(os.path.dirname(widget_dir))
         self.widgets = self.load_widgets()
         self.active_widgets = {}
 
@@ -45,7 +71,6 @@ class WidgetManager:
 
     def reload_widgets(self):
         self.widgets = self.load_widgets()
-        # Reload active widgets
         for widget_name in list(self.active_widgets.keys()):
             if widget_name not in self.widgets:
                 self.deactivate_widget(widget_name)
@@ -54,13 +79,44 @@ class WidgetManager:
 
     def activate_widget(self, widget_name):
         if widget_name in self.widgets:
-            self.active_widgets[widget_name] = self.widgets[widget_name]()
-            return self.active_widgets[widget_name]
-        return None
+            widget_info = self.widgets[widget_name]
+            dependencies = widget_info['dependencies']
+            
+            try:
+                self.venv_manager.install_dependencies(dependencies)
+                
+                # Use the virtual environment's Python to import the widget
+                python_exec = self.venv_manager.get_python_executable()
+                original_executable = sys.executable
+                sys.executable = python_exec
+                
+                # Reload the module to ensure we're using the correct environment
+                module_path = os.path.join(self.widget_dir, f"{widget_name}.py")
+                spec = importlib.util.spec_from_file_location(widget_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                
+                self.active_widgets[widget_name] = module.Widget()
+                
+                # Restore the original Python executable
+                sys.executable = original_executable
+                
+                return self.active_widgets[widget_name]
+            except Exception as e:
+                print(f"Error activating widget {widget_name}: {str(e)}")
+                return None
+        else:
+            print(f"Widget {widget_name} not found.")
+            return None
 
     def deactivate_widget(self, widget_name):
         if widget_name in self.active_widgets:
+            widget = self.active_widgets[widget_name]
+            if hasattr(widget, 'close') and callable(getattr(widget, 'close')):
+                widget.close()
             del self.active_widgets[widget_name]
+        else:
+            print(f"Widget {widget_name} is not active.")
 
     def refresh_widget(self, widget_name):
         if widget_name in self.active_widgets:
@@ -69,3 +125,6 @@ class WidgetManager:
 
     def get_active_widgets(self):
         return self.active_widgets
+
+    def get_widget_dependencies(self, widget_name):
+        return self.widgets.get(widget_name, {}).get('dependencies', [])

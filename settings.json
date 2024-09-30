@@ -10,9 +10,7 @@
     "clock_color": "#ff0000",
     "clock_time_format": "hh:mm",
     "active_widgets": [
-        "clock_widget",
-        "system_monitor_widget",
-        "todo_widget"
+        "clock_widget"
     ],
     "widget_ClockWidget_position": [
         461,
