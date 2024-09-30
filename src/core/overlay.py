@@ -20,8 +20,9 @@ from src.config import APP_NAME, WIDGETS_FOLDER_NAME
 from src.utils.widget_loader import WidgetManager
 
 class Overlay(QWidget):
-    def __init__(self):
+    def __init__(self, settings):
         super().__init__()
+        self.settings = settings
         self.widgets = {}
 
         user_documents = Path.home() / "Documents"
@@ -48,21 +49,28 @@ class Overlay(QWidget):
         self.load_active_widgets()
 
     def load_active_widgets(self):
+        active_widgets = self.settings.get('active_widgets', [])
         available_widgets = self.widget_manager.get_available_widgets()
-        for widget_name in available_widgets:
-            if widget_name not in self.widgets:
+        
+        # Verwijder inactieve widgets
+        for widget_name in list(self.widgets.keys()):
+            if widget_name not in active_widgets:
+                self.widget_manager.deactivate_widget(widget_name)
+                del self.widgets[widget_name]
+        
+        # Laad actieve widgets
+        for widget_name in active_widgets:
+            if widget_name in available_widgets and widget_name not in self.widgets:
                 widget = self.widget_manager.activate_widget(widget_name)
                 if widget:
                     self.widgets[widget_name] = widget
                     widget.setParent(self)
                     widget.show()
                     
-                    # Gebruik de opgeslagen positie als deze beschikbaar is
                     saved_position = widget.config.get('position')
                     if saved_position:
                         widget.move(*saved_position)
                     else:
-                        # Als er geen opgeslagen positie is, gebruik een standaardpositie
                         widget.move(50 * len(self.widgets), 50 * len(self.widgets))
 
     def resizeEvent(self, event):

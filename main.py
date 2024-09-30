@@ -45,9 +45,10 @@ def main():
 
     # Load settings (for application-wide settings, not widget-specific)
     settings = Settings()
-    
+    settings = Settings()   
+
     # Create and show overlay
-    overlay = Overlay()
+    overlay = Overlay(settings)
     overlay.initUI()
     overlay.show()  # Make the overlay visible by default
 

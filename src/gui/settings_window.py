@@ -151,6 +151,7 @@ class SettingsWindow(QDialog):
                 active_widgets.append(widget_name)
 
         self.settings.set('active_widgets', active_widgets)
+        self.settings.save()
 
         self.overlay.load_active_widgets()
 
