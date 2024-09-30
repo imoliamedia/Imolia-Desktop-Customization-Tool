@@ -20,25 +20,30 @@ def setup_logger():
     logger = logging.getLogger('DesktopCustomizer')
     logger.setLevel(logging.DEBUG)
 
-    # Create logs directory if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    # Creëer logs directory in AppData
+    log_dir = os.path.join(os.getenv('APPDATA'), 'Imolia Desktop Customizer', 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, 'app.log')
 
-    # File handler
-    file_handler = logging.FileHandler('logs/app.log')
-    file_handler.setLevel(logging.DEBUG)
+    try:
+        # File handler
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)
 
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
 
-    # Formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+        # Formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
 
-    # Add handlers to logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+        # Add handlers to logger
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+    except PermissionError:
+        print("Kon het logbestand niet aanmaken. Gebruik alleen console logging.")
+        logger.addHandler(logging.StreamHandler())
 
     return logger
