@@ -1,3 +1,11 @@
+"""
+Modern Todo Widget for Imolia Desktop Customizer
+
+Dependencies:
+PyQt5==5.15.6
+
+"""
+
 import json
 import os
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QSizeGrip, QLineEdit, 
@@ -24,7 +32,8 @@ class ModernToDoWidget(DraggableWidget):
             'button_color': '#3498DB',
             'item_bg_color': '#34495E',
             'item_text_color': '#ECF0F1',
-            'size': (300, 450)
+            'size': (300, 450),
+            'position': (100, 100)
         }
 
     def save_config(self):
@@ -78,6 +87,10 @@ class ModernToDoWidget(DraggableWidget):
         self.setMinimumSize(250, 350)
         size = self.config.get('size', (300, 450))
         self.resize(*size)
+
+        # Set position
+        position = self.config.get('position', (100, 100))
+        self.move(*position)
 
         self.updateStyle()
 
@@ -136,9 +149,8 @@ class ModernToDoWidget(DraggableWidget):
         color = QColor(color)
         hsl_hue = color.hslHue()
         hsl_saturation = color.hslSaturation()
-        hsl_lightness = min(round(color.lightness() * factor), 255)  # Rond af naar de dichtstbijzijnde integer
+        hsl_lightness = min(round(color.lightness() * factor), 255)
         return QColor.fromHsl(hsl_hue, hsl_saturation, hsl_lightness).name()
-
 
     def adjustFontSize(self):
         font = QFont()
@@ -150,6 +162,11 @@ class ModernToDoWidget(DraggableWidget):
         super().resizeEvent(event)
         self.adjustFontSize()
         self.config['size'] = (self.width(), self.height())
+        self.save_config()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self.config['position'] = (self.x(), self.y())
         self.save_config()
 
     @pyqtSlot()

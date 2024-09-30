@@ -1,3 +1,12 @@
+"""
+System Monitor Widget for Imolia Desktop Customizer
+
+Dependencies:
+PyQt5==5.15.6
+psutil==5.8.0
+
+"""
+
 import json
 import os
 import psutil
@@ -23,7 +32,8 @@ class SystemMonitorWidget(DraggableWidget):
         return {
             'color': 'white',
             'update_interval': 1000,
-            'size': (250, 150)
+            'size': (250, 150),
+            'position': (100, 100)
         }
 
     def save_config(self):
@@ -49,6 +59,9 @@ class SystemMonitorWidget(DraggableWidget):
         size = self.config.get('size', (250, 150))
         self.resize(*size)
 
+        position = self.config.get('position', (100, 100))
+        self.move(*position)
+
         size_grip = QSizeGrip(self)
         layout.addWidget(size_grip, 0, Qt.AlignBottom | Qt.AlignRight)
 
@@ -67,9 +80,9 @@ class SystemMonitorWidget(DraggableWidget):
         net_io = psutil.net_io_counters()
         net_speed = self.calculate_network_speed(net_io)
 
-        self.cpu_label.setText(f"CPU: {cpu_percent}%")
-        self.memory_label.setText(f"Memory: {memory_percent}%")
-        self.disk_label.setText(f"Disk: {disk_percent}%")
+        self.cpu_label.setText(f"CPU: {cpu_percent:.1f}%")
+        self.memory_label.setText(f"Memory: {memory_percent:.1f}%")
+        self.disk_label.setText(f"Disk: {disk_percent:.1f}%")
         self.network_label.setText(f"Network: {net_speed:.2f} Mbps")
 
     def calculate_network_speed(self, net_io):
@@ -84,13 +97,19 @@ class SystemMonitorWidget(DraggableWidget):
 
     def updateStyle(self):
         color = self.config.get('color', 'white')
-        for label in [self.cpu_label, self.memory_label, self.disk_label, self.network_label]:
-            label.setStyleSheet(f"color: {color};")
+        self.setStyleSheet(f"""
+            QLabel {{
+                color: {color};
+                background-color: rgba(0, 0, 0, 100);
+                border-radius: 5px;
+                padding: 2px;
+            }}
+        """)
         self.adjustFontSize()
 
     def adjustFontSize(self):
         font = QFont()
-        font.setPixelSize(int(self.height() * 0.15))  # 15% van de hoogte
+        font.setPixelSize(int(self.height() * 0.15))  # 15% of height
         for label in [self.cpu_label, self.memory_label, self.disk_label, self.network_label]:
             label.setFont(font)
 
@@ -98,6 +117,11 @@ class SystemMonitorWidget(DraggableWidget):
         super().resizeEvent(event)
         self.adjustFontSize()
         self.config['size'] = (self.width(), self.height())
+        self.save_config()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self.config['position'] = (self.x(), self.y())
         self.save_config()
 
     def updateConfig(self, new_config):
@@ -117,9 +141,7 @@ class SystemMonitorSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
         super().__init__(widget, parent)
 
-    def initUI(self):
-        super().initUI()
-        
+    def add_custom_section(self, layout):
         interval_layout = QHBoxLayout()
         interval_layout.addWidget(QLabel("Update interval (ms):"))
         self.interval_spin = QSpinBox()
@@ -127,13 +149,14 @@ class SystemMonitorSettingsDialog(WidgetSettingsDialog):
         self.interval_spin.setSingleStep(100)
         self.interval_spin.setValue(self.widget.config.get('update_interval', 1000))
         interval_layout.addWidget(self.interval_spin)
-        self.layout().insertLayout(2, interval_layout)
+        layout.addLayout(interval_layout)
 
     def get_config(self):
-        return {
-            'color': self.color_button.palette().button().color().name(),
+        config = super().get_config()
+        config.update({
             'update_interval': self.interval_spin.value()
-        }
+        })
+        return config
 
-# Zorg ervoor dat de Widget klasse is gedefinieerd voor de loader
+# Important: The class must be named 'Widget' for the loader to recognize it
 Widget = SystemMonitorWidget

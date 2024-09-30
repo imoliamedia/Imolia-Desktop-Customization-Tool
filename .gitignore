@@ -12,3 +12,4 @@ venv/
 dist/
 build/
 *.spec
+exe_launcher.py

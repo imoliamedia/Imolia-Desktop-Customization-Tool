@@ -1,3 +1,17 @@
+"""
+Google Calendar Widget for Imolia Desktop Customizer
+
+Dependencies:
+PyQt5==5.15.6
+icalendar==5.0.7
+recurring_ical_events==2.0.2
+requests==2.28.1
+
+Description:
+This widget displays events from multiple Google Calendar feeds using iCal URLs.
+It provides a calendar view and a list of upcoming events, with customizable colors and update intervals.
+"""
+
 import json
 import os
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QCalendarWidget, 
@@ -23,7 +37,7 @@ class GoogleCalendarWidget(DraggableWidget):
         default_config = {
             'ical_urls': [],
             'colors': {},
-            'update_interval': 3600000,  # 1 uur in milliseconden
+            'update_interval': 3600000,  # 1 hour in milliseconds
             'num_events': 5,
             'widget_bg_color': '#FFFFFF',
             'widget_text_color': '#000000',
@@ -32,7 +46,9 @@ class GoogleCalendarWidget(DraggableWidget):
             'selected_date_color': '#3498DB',
             'event_list_bg_color': '#FFFFFF',
             'event_list_text_color': '#000000',
-            'date_format': 'dd/mm/yyyy'  # Nieuwe optie voor datumformaat
+            'date_format': 'dd/mm/yyyy',
+            'size': (400, 600),
+            'position': (100, 100)
         }
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
@@ -55,6 +71,14 @@ class GoogleCalendarWidget(DraggableWidget):
         
         self.eventList = QListWidget()
         layout.addWidget(self.eventList)
+        
+        self.setLayout(layout)
+        
+        size = self.config.get('size', (400, 600))
+        self.resize(*size)
+        
+        position = self.config.get('position', (100, 100))
+        self.move(*position)
         
         self.updateStyle()
         self.updateCalendar()
@@ -193,119 +217,125 @@ class GoogleCalendarWidget(DraggableWidget):
         self.setupUpdateTimer()
 
     def openSettings(self):
-        dialog = SettingsDialog(self)
+        dialog = GoogleCalendarSettingsDialog(self)
         if dialog.exec_():
-            self.updateConfig(self.config)  # Update with potentially changed config
+            new_config = dialog.get_config()
+            self.updateConfig(new_config)
 
-class SettingsDialog(QDialog):
-    def __init__(self, widget):
-        super().__init__()
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.config['size'] = (self.width(), self.height())
+        self.save_config()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self.config['position'] = (self.x(), self.y())
+        self.save_config()
+
+class GoogleCalendarSettingsDialog(WidgetSettingsDialog):
+    def __init__(self, widget, parent=None):
+        super().__init__(widget, parent)
         self.widget = widget
-        self.setWindowTitle("Google Calendar Widget Instellingen")
-        self.initUI()
+        self.init_ui()
 
-    def initUI(self):
-        layout = QVBoxLayout(self)
-
-        form_layout = QFormLayout()
+    def init_ui(self):
+        layout = self.layout()
 
         self.urlInputs = []
         for url in self.widget.config['ical_urls']:
-            self.addUrlInput(url, form_layout)
+            self.add_url_input(url, layout)
 
-        addCalendarButton = QPushButton("Kalender Toevoegen")
-        addCalendarButton.clicked.connect(lambda: self.addUrlInput('', form_layout))
-        form_layout.addRow(addCalendarButton)
+        add_calendar_button = QPushButton("Add Calendar")
+        add_calendar_button.clicked.connect(lambda: self.add_url_input('', layout))
+        layout.addWidget(add_calendar_button)
 
-        self.updateIntervalInput = QSpinBox()
-        self.updateIntervalInput.setRange(1, 24)
-        self.updateIntervalInput.setValue(self.widget.config['update_interval'] // 3600000)
-        form_layout.addRow("Update Interval (uren):", self.updateIntervalInput)
+        self.update_interval_input = QSpinBox()
+        self.update_interval_input.setRange(1, 24)
+        self.update_interval_input.setValue(self.widget.config['update_interval'] // 3600000)
+        layout.addWidget(QLabel("Update Interval (hours):"))
+        layout.addWidget(self.update_interval_input)
 
-        self.numEventsInput = QSpinBox()
-        self.numEventsInput.setRange(1, 20)
-        self.numEventsInput.setValue(self.widget.config['num_events'])
-        form_layout.addRow("Aantal weer te geven gebeurtenissen:", self.numEventsInput)
+        self.num_events_input = QSpinBox()
+        self.num_events_input.setRange(1, 20)
+        self.num_events_input.setValue(self.widget.config['num_events'])
+        layout.addWidget(QLabel("Number of events to display:"))
+        layout.addWidget(self.num_events_input)
 
-        # Datumformaat optie
-        self.dateFormatCombo = QComboBox()
-        self.dateFormatCombo.addItems(['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd'])
-        self.dateFormatCombo.setCurrentText(self.widget.config['date_format'])
-        form_layout.addRow("Datumformaat:", self.dateFormatCombo)
+        self.date_format_combo = QComboBox()
+        self.date_format_combo.addItems(['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd'])
+        self.date_format_combo.setCurrentText(self.widget.config['date_format'])
+        layout.addWidget(QLabel("Date format:"))
+        layout.addWidget(self.date_format_combo)
 
-        # Kleurinstellingen
+        self.init_color_buttons(layout)
+
+    def add_url_input(self, url, layout):
+        url_input = QLineEdit(url)
+        url_input.setEchoMode(QLineEdit.Password)
+        color_button = QPushButton()
+        color = self.widget.config['colors'].get(url, '#FFB347')
+        color_button.setStyleSheet(f"background-color: {color};")
+        color_button.clicked.connect(lambda _, u=url_input, b=color_button: self.choose_color(u, b))
+        
+        hbox = QHBoxLayout()
+        hbox.addWidget(url_input)
+        hbox.addWidget(color_button)
+        
+        self.urlInputs.append((url_input, color_button))
+        layout.addWidget(QLabel(f"Calendar URL {len(self.urlInputs)}:"))
+        layout.addLayout(hbox)
+
+    def init_color_buttons(self, layout):
         self.color_buttons = {}
         color_options = [
-            ('widget_bg_color', 'Widget achtergrond'),
-            ('widget_text_color', 'Widget tekst'),
-            ('calendar_bg_color', 'Kalender achtergrond'),
-            ('calendar_text_color', 'Kalender tekst'),
-            ('selected_date_color', 'Geselecteerde datum'),
-            ('event_list_bg_color', 'Gebeurtenissenlijst achtergrond'),
-            ('event_list_text_color', 'Gebeurtenissenlijst tekst')
+            ('widget_bg_color', 'Widget background'),
+            ('widget_text_color', 'Widget text'),
+            ('calendar_bg_color', 'Calendar background'),
+            ('calendar_text_color', 'Calendar text'),
+            ('selected_date_color', 'Selected date'),
+            ('event_list_bg_color', 'Event list background'),
+            ('event_list_text_color', 'Event list text')
         ]
 
         for color_key, color_name in color_options:
             button = QPushButton()
             button.setStyleSheet(f"background-color: {self.widget.config[color_key]};")
-            button.clicked.connect(lambda _, k=color_key: self.chooseWidgetColor(k))
-            form_layout.addRow(f"{color_name}:", button)
+            button.clicked.connect(lambda _, k=color_key: self.choose_widget_color(k))
+            layout.addWidget(QLabel(f"{color_name}:"))
+            layout.addWidget(button)
             self.color_buttons[color_key] = button
 
-        layout.addLayout(form_layout)
-
-        buttonBox = QHBoxLayout()
-        saveButton = QPushButton("Opslaan")
-        saveButton.clicked.connect(self.saveSettings)
-        cancelButton = QPushButton("Annuleren")
-        cancelButton.clicked.connect(self.reject)
-        buttonBox.addWidget(saveButton)
-        buttonBox.addWidget(cancelButton)
-        layout.addLayout(buttonBox)
-
-    def addUrlInput(self, url, layout):
-        urlInput = QLineEdit(url)
-        urlInput.setEchoMode(QLineEdit.Password)
-        colorButton = QPushButton()
-        color = self.widget.config['colors'].get(url, '#FFB347')
-        colorButton.setStyleSheet(f"background-color: {color};")
-        colorButton.clicked.connect(lambda _, u=urlInput, b=colorButton: self.chooseColor(u, b))
-        
-        hbox = QHBoxLayout()
-        hbox.addWidget(urlInput)
-        hbox.addWidget(colorButton)
-        
-        self.urlInputs.append((urlInput, colorButton))
-        layout.insertRow(layout.rowCount() - 1, f"Kalender URL {len(self.urlInputs)}:", hbox)
-
-    def chooseColor(self, urlInput, button):
+    def choose_color(self, url_input, button):
         color = QColorDialog.getColor()
         if color.isValid():
             button.setStyleSheet(f"background-color: {color.name()};")
-            self.widget.config['colors'][urlInput.text()] = color.name()
+            self.widget.config['colors'][url_input.text()] = color.name()
 
-    def chooseWidgetColor(self, color_key):
+    def choose_widget_color(self, color_key):
         color = QColorDialog.getColor(QColor(self.widget.config[color_key]))
         if color.isValid():
             self.color_buttons[color_key].setStyleSheet(f"background-color: {color.name()};")
             self.widget.config[color_key] = color.name()
 
-    def saveSettings(self):
-        self.widget.config['ical_urls'] = [input.text() for input, _ in self.urlInputs if input.text()]
-        self.widget.config['update_interval'] = self.updateIntervalInput.value() * 3600000
-        self.widget.config['num_events'] = self.numEventsInput.value()
-        self.widget.config['date_format'] = self.dateFormatCombo.currentText()
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'ical_urls': [input.text() for input, _ in self.urlInputs if input.text()],
+            'update_interval': self.update_interval_input.value() * 3600000,
+            'num_events': self.num_events_input.value(),
+            'date_format': self.date_format_combo.currentText(),
+        })
         
-        for urlInput, colorButton in self.urlInputs:
-            url = urlInput.text()
+        for url_input, color_button in self.urlInputs:
+            url = url_input.text()
             if url:
-                color = colorButton.palette().button().color().name()
-                self.widget.config['colors'][url] = color
+                color = color_button.palette().button().color().name()
+                config['colors'][url] = color
 
-        # Nieuwe kleurinstellingen opslaan
         for color_key, button in self.color_buttons.items():
-            self.widget.config[color_key] = button.palette().button().color().name()
+            config[color_key] = button.palette().button().color().name()
 
-        self.accept()
+        return config
 
+# Important: The class must be named 'Widget' for the loader to recognize it
 Widget = GoogleCalendarWidget
