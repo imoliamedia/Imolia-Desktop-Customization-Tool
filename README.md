@@ -13,15 +13,6 @@ A powerful, open-source desktop customization tool developed by Imolia Media.
 
 ## Installation
 
-Option 1: Executable (Windows)
-
-1. Go to the Releases page.
-2. Download the latest DesktopCustomizer.zip file.
-3. Extract the contents of the ZIP file.
-4. Run DesktopCustomizer.exe.
-
-Option 2: From Source
-
 1. Clone this repository:
    ```
    git clone https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool.git
