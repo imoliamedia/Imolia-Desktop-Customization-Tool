@@ -16,3 +16,4 @@ def runtime_hook():
     # Voeg het pad toe aan sys.path zodat Python de modules kan vinden
     if widgets_path not in sys.path:
         sys.path.append(widgets_path)
+        
