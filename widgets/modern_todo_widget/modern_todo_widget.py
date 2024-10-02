@@ -236,3 +236,11 @@ class ModernToDoWidgetSettingsDialog(WidgetSettingsDialog):
 
 # Important: The class must be named 'Widget' for the loader to recognize it
 Widget = ModernToDoWidget
+
+if __name__ == "__main__":
+    import sys
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication(sys.argv)
+    widget = Widget()
+    widget.show()
+    sys.exit(app.exec_())

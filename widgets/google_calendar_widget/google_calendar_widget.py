@@ -7,9 +7,6 @@ icalendar==5.0.7
 recurring_ical_events==2.0.2
 requests==2.28.1
 
-Description:
-This widget displays events from multiple Google Calendar feeds using iCal URLs.
-It provides a calendar view and a list of upcoming events, with customizable colors and update intervals.
 """
 
 import json
@@ -339,3 +336,11 @@ class GoogleCalendarSettingsDialog(WidgetSettingsDialog):
 
 # Important: The class must be named 'Widget' for the loader to recognize it
 Widget = GoogleCalendarWidget
+
+if __name__ == "__main__":
+    import sys
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication(sys.argv)
+    widget = Widget()
+    widget.show()
+    sys.exit(app.exec_())

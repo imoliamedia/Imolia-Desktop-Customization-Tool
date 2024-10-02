@@ -15,6 +15,7 @@
 
 import sys
 import os
+from pathlib import Path
 
 # Add the path to the widget_venv to sys.path
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +32,7 @@ from src.config import APP_NAME
 from src.core.tray_icon import SystemTrayIcon
 from src.utils.settings import Settings
 from src.utils.logger import setup_logger
+from src.utils.widget_loader import WidgetManager
 
 def main():
     # Initialize application
@@ -45,7 +47,6 @@ def main():
 
     # Load settings (for application-wide settings, not widget-specific)
     settings = Settings()
-    settings = Settings()   
 
     # Create and show overlay
     overlay = Overlay(settings)

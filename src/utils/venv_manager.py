@@ -22,29 +22,23 @@ import logging
 class VenvManager:
     def __init__(self, base_dir):
         self.base_dir = base_dir
-        self.venv_path = os.path.join(base_dir, 'widget_venv')
-        self.pip_path = os.path.join(self.venv_path, 'Scripts' if sys.platform == 'win32' else 'bin', 'pip')
+        self.venv_path = None
 
-    def create_venv(self):
+    def create_widget_venv(self, widget_name):
+        self.venv_path = os.path.join(self.base_dir, f'{widget_name}_venv')
         if not os.path.exists(self.venv_path):
-            logging.info(f"Creating virtual environment at {self.venv_path}")
             venv.create(self.venv_path, with_pip=True)
-            logging.info("Virtual environment created successfully")
-        else:
-            logging.info("Virtual environment already exists")
+        return self.venv_path
 
-    def install_dependencies(self, dependencies):
-        self.create_venv()
+    def install_dependencies(self, widget_name, dependencies):
+        venv_path = self.create_widget_venv(widget_name)
+        pip_path = os.path.join(venv_path, 'Scripts', 'pip.exe')
         for dep in dependencies:
-            logging.info(f"Installing dependency: {dep}")
-            try:
-                result = subprocess.run([self.pip_path, 'install', dep], capture_output=True, text=True, check=True)
-                logging.info(f"Successfully installed {dep}")
-            except subprocess.CalledProcessError as e:
-                logging.error(f"Failed to install {dep}: {e.stderr}")
-                raise
+            subprocess.run([pip_path, 'install', dep], check=True)
 
     def get_python_executable(self):
+        if self.venv_path is None:
+            raise ValueError("Virtual environment path is not set. Call create_widget_venv first.")
         return os.path.join(self.venv_path, 'Scripts' if sys.platform == 'win32' else 'bin', 'python')
 
     def run_in_venv(self, command):

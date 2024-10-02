@@ -17,6 +17,7 @@ import os
 import importlib.util
 import sys
 import re
+import logging
 from src.utils.venv_manager import VenvManager
 
 def parse_dependencies(file_path):
@@ -38,6 +39,9 @@ def load_widgets(widget_dir):
             module_path = os.path.join(widget_dir, filename)
             dependencies = parse_dependencies(module_path)
             
+            logging.debug(f"Laden van widget: {module_name}")
+            logging.debug(f"Afhankelijkheden voor {module_name}: {dependencies}")
+            
             try:
                 spec = importlib.util.spec_from_file_location(module_name, module_path)
                 module = importlib.util.module_from_spec(spec)
@@ -48,10 +52,11 @@ def load_widgets(widget_dir):
                         'class': module.Widget,
                         'dependencies': dependencies
                     }
+                    logging.debug(f"Widget {module_name} succesvol geladen")
                 else:
-                    print(f"Warning: {filename} does not contain a 'Widget' class.")
+                    logging.warning(f"Waarschuwing: {filename} bevat geen 'Widget' klasse.")
             except Exception as e:
-                print(f"Error loading widget {filename}: {str(e)}")
+                logging.error(f"Fout bij het laden van widget {filename}: {str(e)}")
     
     sys.path.remove(widget_dir)  # Remove widget directory from Python path
     return widgets
@@ -82,8 +87,11 @@ class WidgetManager:
             widget_info = self.widgets[widget_name]
             dependencies = widget_info['dependencies']
             
+            logging.debug(f"Activeren van widget: {widget_name}")
+            logging.debug(f"Afhankelijkheden voor {widget_name}: {dependencies}")
+            
             try:
-                self.venv_manager.install_dependencies(dependencies)
+                self.venv_manager.install_dependencies(widget_name, dependencies)
                 
                 # Use the virtual environment's Python to import the widget
                 python_exec = self.venv_manager.get_python_executable()
@@ -101,12 +109,14 @@ class WidgetManager:
                 # Restore the original Python executable
                 sys.executable = original_executable
                 
+                logging.debug(f"Widget {widget_name} succesvol geactiveerd")
                 return self.active_widgets[widget_name]
             except Exception as e:
-                print(f"Error activating widget {widget_name}: {str(e)}")
+                logging.error(f"Fout bij activeren van widget {widget_name}: {str(e)}")
+                logging.exception("Stacktrace:")
                 return None
         else:
-            print(f"Widget {widget_name} not found.")
+            logging.warning(f"Widget {widget_name} niet gevonden.")
             return None
 
     def deactivate_widget(self, widget_name):
@@ -115,8 +125,9 @@ class WidgetManager:
             if hasattr(widget, 'close') and callable(getattr(widget, 'close')):
                 widget.close()
             del self.active_widgets[widget_name]
+            logging.debug(f"Widget {widget_name} gedeactiveerd")
         else:
-            print(f"Widget {widget_name} is not active.")
+            logging.warning(f"Widget {widget_name} is niet actief.")
 
     def refresh_widget(self, widget_name):
         if widget_name in self.active_widgets:
