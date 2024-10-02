@@ -13,5 +13,4 @@ dist/
 build/
 *.spec
 exe_launcher.py
-
 runtime_hook.py
