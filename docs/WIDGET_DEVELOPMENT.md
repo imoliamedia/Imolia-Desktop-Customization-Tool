@@ -1,24 +1,10 @@
 # Comprehensive Widget Development Guide for Imolia Desktop Customization Tool
 
 ## Introduction
-Welcome to the comprehensive guide for creating custom widgets for the Imolia Desktop Customization Tool. This guide is designed to help developers of all skill levels create powerful, standalone widgets that seamlessly integrate with our desktop customization platform.
-
-## License
-All widgets developed for this tool must be compatible with the GNU General Public License v3.0. Please ensure you understand the implications of this license for your code before contributing.
+This guide has been updated to reflect the current state of widget development for the Imolia Desktop Customization Tool, based on our four working widgets: Clock, System Monitor, Google Calendar, and Modern Todo.
 
 ## Table of Contents
 1. Widget Basics
-<<<<<<< Updated upstream
-2. Creating Your First Widget
-3. Widget Configuration and Customization
-4. Styling Your Widget
-5. Widget Settings
-6. Making Your Widget Resizable and Draggable
-7. Implementing Regular Updates
-8. Best Practices
-9. Adding Your Widget to the Application
-10. Submitting Your Widget for Inclusion
-=======
 2. Setting Up Your Development Environment
 3. Creating Your First Widget
 4. Widget Configuration and Customization
@@ -29,36 +15,29 @@ All widgets developed for this tool must be compatible with the GNU General Publ
 9. Best Practices
 10. Testing Your Widget
 11. Adding Your Widget to the Application
-12. Specifying Dependencies
-13. Troubleshooting Common Issues
-14. Submitting Your Widget for Inclusion
->>>>>>> Stashed changes
+12. Handling Dependencies
+13. Error Handling and Logging
+14. Troubleshooting Common Issues
 
 ## 1. Widget Basics
-Widgets in our application are Python classes that inherit from `DraggableWidget`. This base class provides essential functionality such as dragging, resizing, and basic configuration management. Understanding the `DraggableWidget` class is crucial for developing effective widgets.
+All widgets should inherit from the `DraggableWidget` class, which provides essential functionality like dragging, resizing, and basic configuration management.
 
 Key concepts:
 - Widgets are self-contained modules
-- Each widget manages its own configuration and appearance
+- Each widget manages its own configuration
 - Widgets can be resized and moved by the user
-- Widgets can have their own settings dialog
+- Widgets should have their own settings dialog
 
 ## 2. Setting Up Your Development Environment
-Before you start developing widgets, ensure you have the following set up:
+Ensure you have:
 - Python 3.7 or higher
 - PyQt5 installed (`pip install PyQt5`)
-- A code editor (we recommend Visual Studio Code with the Python extension)
-- Git for version control
+- Any additional dependencies specific to your widget
 
-Clone the Imolia Desktop Customization Tool repository to get started:
-```
-git clone https://github.com/ImoliMedia/desktop-customization-tool.git
-cd desktop-customization-tool
-pip install -r requirements.txt
-```
+Clone the Imolia Desktop Customization Tool repository and install requirements.
 
 ## 3. Creating Your First Widget
-Here's a template for a new widget:
+Here's an updated template based on our working widgets:
 
 ```python
 """
@@ -66,9 +45,7 @@ MyCustomWidget
 
 Dependencies:
 PyQt5==5.15.6
-
-Description:
-This widget is a template for creating custom widgets.
+# List any other dependencies here
 """
 
 import json
@@ -86,10 +63,17 @@ class MyCustomWidget(DraggableWidget):
 
     def load_config(self):
         config_path = os.path.join(os.path.dirname(__file__), 'my_custom_widget_config.json')
+        default_config = {
+            'color': 'white',
+            'size': (200, 100),
+            'position': (100, 100),
+            # Add other default configuration options here
+        }
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
-                return json.load(f)
-        return {'color': 'white', 'size': (200, 100), 'position': (100, 100)}
+                loaded_config = json.load(f)
+                default_config.update(loaded_config)
+        return default_config
 
     def save_config(self):
         config_path = os.path.join(os.path.dirname(__file__), 'my_custom_widget_config.json')
@@ -111,13 +95,20 @@ class MyCustomWidget(DraggableWidget):
 
         self.updateStyle()
 
+        # Setup timer for regular updates if needed
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_widget)
         self.timer.start(1000)  # Update every 1000 ms
 
     def updateStyle(self):
         color = self.config.get('color', 'white')
-        self.label.setStyleSheet(f"color: {color}; background-color: transparent;")
+        self.setStyleSheet(f"""
+            QWidget {{
+                color: {color};
+                background-color: rgba(0, 0, 0, 100);
+                border-radius: 10px;
+            }}
+        """)
         self.adjustFontSize()
 
     def adjustFontSize(self):
@@ -129,6 +120,11 @@ class MyCustomWidget(DraggableWidget):
         super().resizeEvent(event)
         self.adjustFontSize()
         self.config['size'] = (self.width(), self.height())
+        self.save_config()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self.config['position'] = (self.x(), self.y())
         self.save_config()
 
     def update_widget(self):
@@ -163,242 +159,105 @@ Widget = MyCustomWidget
 ```
 
 ## 4. Widget Configuration and Customization
-- Use a `config` dictionary to store customizable properties of your widget.
-<<<<<<< Updated upstream
-- Implement `load_config()` and `save_config()` methods to manage persistent storage of your widget's configuration.
-- The `updateConfig` method allows for dynamic updates to the widget's appearance and behavior.
-
-## 4. Styling Your Widget
-- Implement the `updateStyle` method to apply styles based on the configuration.
-- Use transparent backgrounds to blend with the desktop.
-- Adjust font sizes dynamically based on widget size.
-
-## 5. Widget Settings
-When developing a new widget, use the `WidgetSettingsDialog` as a base for your settings window:
-
-1. Create a new class that inherits from `WidgetSettingsDialog`.
-2. Override the `add_custom_section` method to add widget-specific settings.
-3. Adjust the `get_config` method to include widget-specific settings.
-
-Example:
-=======
+- Use a `config` dictionary to store customizable properties.
 - Implement `load_config()` and `save_config()` methods for persistent storage.
 - Use `updateConfig()` for dynamic updates to the widget's appearance and behavior.
-- Create a custom settings dialog by extending `WidgetSettingsDialog`.
->>>>>>> Stashed changes
-
-Example of adding a custom setting:
-```python
-def add_custom_section(self, layout):
-    custom_group = QGroupBox("Custom Settings")
-    custom_layout = QVBoxLayout()
-    
-    # Add a custom option
-    self.custom_option = QCheckBox("Enable feature")
-    self.custom_option.setChecked(self.widget.config.get('custom_feature', False))
-    custom_layout.addWidget(self.custom_option)
-    
-    custom_group.setLayout(custom_layout)
-    layout.addWidget(custom_group)
-
-<<<<<<< Updated upstream
-    def get_config(self):
-        config = super().get_config()
-        # Add your custom settings to config here
-        return config
-=======
-def get_config(self):
-    config = super().get_config()
-    config.update({
-        'custom_feature': self.custom_option.isChecked()
-    })
-    return config
-```
 
 ## 5. Styling Your Widget
+- Implement the `updateStyle` method to apply styles based on the configuration.
 - Use Qt stylesheets for complex styling.
-- Ensure your widget looks good on different desktop backgrounds.
-- Consider using Qt's built-in color roles for consistent theming.
-
-Example of advanced styling:
-```python
-def updateStyle(self):
-    color = self.config.get('color', 'white')
-    self.setStyleSheet(f"""
-        QLabel {{
-            color: {color};
-            background-color: rgba(0, 0, 0, 100);
-            border-radius: 10px;
-            padding: 5px;
-        }}
-    """)
->>>>>>> Stashed changes
-```
+- Consider using transparent backgrounds for better desktop integration.
 
 ## 6. Making Your Widget Resizable and Draggable
-The `DraggableWidget` base class provides built-in functionality for resizing and dragging. To customize this behavior:
-
-- Override `mousePressEvent`, `mouseMoveEvent`, and `mouseReleaseEvent` for custom dragging behavior.
-- Implement custom resize handles by overriding `paintEvent` and `mousePressEvent`.
-
-Example of custom resize handle:
-```python
-def paintEvent(self, event):
-    super().paintEvent(event)
-    painter = QPainter(self)
-    painter.setPen(QPen(Qt.white, 2, Qt.SolidLine))
-    painter.drawRect(self.width() - 20, self.height() - 20, 20, 20)
-
-def mousePressEvent(self, event):
-    if event.pos().x() > self.width() - 20 and event.pos().y() > self.height() - 20:
-        self.resizing = True
-        self.resize_start_pos = event.pos()
-    else:
-        super().mousePressEvent(event)
-```
+The `DraggableWidget` base class provides this functionality. Override `resizeEvent` and `moveEvent` to handle size and position changes.
 
 ## 7. Implementing Regular Updates
-For widgets that need to update regularly:
-- Use `QTimer` for timed updates.
-- Consider using `QThread` for heavy computations to keep the UI responsive.
-
-Example of threaded updates:
-```python
-from PyQt5.QtCore import QThread, pyqtSignal
-
-class UpdateThread(QThread):
-    update_signal = pyqtSignal(str)
-
-    def run(self):
-        # Perform heavy computation here
-        result = self.heavy_computation()
-        self.update_signal.emit(result)
-
-class MyWidget(DraggableWidget):
-    def __init__(self):
-        super().__init__()
-        self.update_thread = UpdateThread()
-        self.update_thread.update_signal.connect(self.update_display)
-        self.update_thread.start()
-
-    def update_display(self, result):
-        # Update widget with the result
-        pass
-```
+Use `QTimer` for timed updates, as seen in the System Monitor and Clock widgets.
 
 ## 8. Advanced Widget Features
 - Implement custom context menus for additional functionality.
 - Use Qt's event system for complex interactions.
 - Consider adding keyboard shortcuts for power users.
 
-Example of custom context menu:
-```python
-def contextMenuEvent(self, event):
-    context_menu = QMenu(self)
-    refresh_action = context_menu.addAction("Refresh")
-    action = context_menu.exec_(self.mapToGlobal(event.pos()))
-    if action == refresh_action:
-        self.refresh_widget()
-```
-
 ## 9. Best Practices
-- Follow PEP 8 style guidelines for Python code.
+- Follow PEP 8 style guidelines.
 - Use meaningful variable and function names.
 - Comment your code, especially for complex logic.
 - Handle errors gracefully, especially when loading/saving configurations.
 - Optimize for performance, especially if your widget updates frequently.
-- Use Qt's layout system for responsive widget designs.
-- Implement a `close()` method to clean up resources when the widget is closed.
 
-<<<<<<< Updated upstream
-## 9. Adding Your Widget to the Application
-To add your widget to the Desktop Customization Tool:
-=======
 ## 10. Testing Your Widget
 - Create unit tests for your widget's core functionality.
 - Test your widget in different scenarios (resizing, configuration changes, etc.).
 - Use Qt's test framework for GUI testing.
 
-Example of a simple test:
-```python
-import unittest
-from PyQt5.QtWidgets import QApplication
-from my_custom_widget import MyCustomWidget
->>>>>>> Stashed changes
-
-class TestMyCustomWidget(unittest.TestCase):
-    def setUp(self):
-        self.app = QApplication([])
-        self.widget = MyCustomWidget()
-
-    def test_initial_size(self):
-        self.assertEqual(self.widget.size(), (200, 100))
-
-    def test_config_update(self):
-        self.widget.updateConfig({'color': 'red'})
-        self.assertEqual(self.widget.config['color'], 'red')
-
-if __name__ == '__main__':
-    unittest.main()
-```
-
 ## 11. Adding Your Widget to the Application
-1. Create a new Python file in `C:\Users\[YourUsername]\Documents\Imolia Desktop Customizer Widgets\`.
+1. Create a new Python file in the designated widgets folder.
 2. Implement your widget as described in this guide.
 3. Ensure the main widget class is aliased as `Widget`.
 4. Restart the Imolia Desktop Customizer application.
-5. Your new widget will be available in the widget manager.
 
-## 12. Specifying Dependencies
-Include dependencies in a comment at the top of your widget file:
+# Comprehensive Widget Development Guide for Imolia Desktop Customization Tool
+
+## Introduction
+This guide reflects the current state of widget development for the Imolia Desktop Customization Tool, updated based on our experiences with various widgets including the Clock, System Monitor, Google Calendar, Modern Todo, and Pomodoro Timer.
+
+## 12. Handling Dependencies
+- List all dependencies at the top of your widget file in a comment block.
+- Use the virtual environment system implemented in the application to manage widget-specific dependencies.
+- Implement a method to install dependencies if necessary. For example:
+
 ```python
-"""
-MyAwesomeWidget
-
-Dependencies:
-requests==2.25.1
-beautifulsoup4==4.9.3
-
-Description:
-This widget does something awesome.
-"""
+@staticmethod
+def install_dependencies():
+    try:
+        python_executable = sys.executable
+        pip_command = [python_executable, "-m", "pip", "install", "PyQt5==5.15.6"]
+        result = subprocess.run(pip_command, capture_output=True, text=True, check=True)
+        logger.info(f"Pip install output: {result.stdout}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error installing dependencies: {e}")
+        logger.error(f"Pip install error output: {e.stderr}")
+        return False
 ```
 
-<<<<<<< Updated upstream
-## 10. Submitting Your Widget for Inclusion
-If you've developed a widget that you believe would be valuable to other users, you can submit it for inclusion in the main Imolia Desktop Customizer repository:
+## 13. Error Handling and Logging
+- Implement comprehensive logging in your widget to facilitate debugging.
+- Use Python's `logging` module to create informative log messages.
+- Log important events, errors, and state changes in your widget.
+- Example of setting up logging:
 
-1. Ensure your widget follows all the guidelines outlined in this document.
-2. Fork the Imolia Desktop Customizer repository on GitHub.
-3. Add your widget to the `widgets` directory in your forked repository, following the structure outlined in the "Widget Basics" section.
-4. Create a pull request with your new widget.
-5. In the pull request description, provide a brief overview of your widget's functionality and any dependencies it may have.
-6. Our team will review your submission. We may provide feedback or request changes.
-7. If approved, your widget will be added to the main repository and will be available to all users in future releases.
+```python
+import logging
 
-Please note that while we appreciate all contributions, we reserve the right to reject or request modifications to submitted widgets to ensure they meet our quality and security standards.
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-## Note on Configuration Files
-Each widget saves its configuration in a separate JSON file in the same directory as the widget. This ensures that each widget remains independent and can manage its own settings without relying on the main application.
+# Usage
+logger.debug("Debugging information")
+logger.info("General information")
+logger.warning("Warning message")
+logger.error("Error message")
+```
 
-## Conclusion
-By following this guide, you can create custom, standalone widgets that seamlessly integrate with the Desktop Customization Tool. Remember to focus on functionality, user-friendliness, customizability, and performance in your widget design. Your widgets should be able to operate independently, managing their own configurations and adapting to user preferences. Always ensure your widget code complies with the GPL v3 license.
+## 14. Troubleshooting Common Issues
+- Widget not appearing: 
+  - Check if it's properly registered in the widget manager.
+  - Verify that all dependencies are correctly installed.
+  - Check the application logs for any error messages during widget initialization.
+- Styling issues: 
+  - Ensure all style properties are properly set and updated.
+  - Verify that the `updateStyle` method is called after any configuration changes.
+- Performance problems: 
+  - Profile your code and optimize heavy operations.
+  - Consider using background threads for time-consuming tasks.
+- Configuration not saving: 
+  - Verify the `save_config` method is called appropriately.
+  - Check file permissions for the configuration file location.
+- Dependency issues:
+  - Ensure that the `install_dependencies` method is implemented and called.
+  - Verify that the correct Python interpreter is being used (especially in virtual environments).
+  - Check for any conflicts between widget dependencies and the main application.
 
-
-=======
-## 13. Troubleshooting Common Issues
-- Widget not appearing: Check if it's properly registered in the widget manager.
-- Styling issues: Ensure all style properties are properly set and updated.
-- Performance problems: Profile your code and optimize heavy operations.
-- Configuration not saving: Verify the `save_config` method is called appropriately.
-
-## 14. Submitting Your Widget for Inclusion
-1. Ensure your widget follows all guidelines in this document.
-2. Fork the Imolia Desktop Customizer repository on GitHub.
-3. Add your widget to the `widgets` directory in your forked repository.
-4. Create a pull request with a description of your widget's functionality and any dependencies.
-5. Our team will review your submission and may provide feedback.
-
-## Conclusion
-By following this comprehensive guide, you can create powerful, customizable widgets for the Imolia Desktop Customization Tool. Remember to focus on user experience, performance, and maintainability in your widget designs. Happy coding!
->>>>>>> Stashed changes
+Remember to thoroughly test your widget in various scenarios and with different configurations to ensure stability and performance. Always provide clear error messages and logging to help diagnose issues that may arise during development or use.

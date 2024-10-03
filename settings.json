@@ -12,7 +12,10 @@
     "active_widgets": [
         "clock_widget",
         "google_calendar_widget",
+        "Image Format Converter",
         "modern_todo_widget",
+        "Pomodoro Productivity Timer",
+        "Quick Notes",
         "system_monitor_widget"
     ],
     "widget_ClockWidget_position": [

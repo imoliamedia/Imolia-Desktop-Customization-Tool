@@ -162,15 +162,18 @@ class GoogleCalendarWidget(DraggableWidget):
         
         upcoming_events.sort(key=lambda x: x[0])
 
-        for _, event in upcoming_events[:self.config['num_events']]:
-            start_time = get_start_datetime(event)
-            if isinstance(start_time, datetime):
+        displayed_events = []
+        for start_time, event in upcoming_events:
+            if len(displayed_events) >= self.config['num_events']:
+                break
+            
+            event_key = (start_time, event.get('SUMMARY', ''))
+            if event_key not in displayed_events:
+                displayed_events.append(event_key)
                 start_time_str = self.format_date(start_time)
-            else:
-                start_time_str = self.format_date(start_time)
-            item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
-            item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
-            self.eventList.addItem(item)
+                item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
+                item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
+                self.eventList.addItem(item)
 
     def format_date(self, date):
         date_format = self.config['date_format']
@@ -274,13 +277,27 @@ class GoogleCalendarSettingsDialog(WidgetSettingsDialog):
         color_button.setStyleSheet(f"background-color: {color};")
         color_button.clicked.connect(lambda _, u=url_input, b=color_button: self.choose_color(u, b))
         
+        remove_button = QPushButton("Remove")
+        remove_button.clicked.connect(lambda _, u=url_input: self.remove_url_input(u))
+        
         hbox = QHBoxLayout()
         hbox.addWidget(url_input)
         hbox.addWidget(color_button)
+        hbox.addWidget(remove_button)
         
-        self.urlInputs.append((url_input, color_button))
+        self.urlInputs.append((url_input, color_button, remove_button))
         layout.addWidget(QLabel(f"Calendar URL {len(self.urlInputs)}:"))
         layout.addLayout(hbox)
+
+    def remove_url_input(self, url_input):
+        for i, (input_, color_button, remove_button) in enumerate(self.urlInputs):
+            if input_ == url_input:
+                self.urlInputs.pop(i)
+                input_.deleteLater()
+                color_button.deleteLater()
+                remove_button.deleteLater()
+                break
+        self.adjustSize()
 
     def init_color_buttons(self, layout):
         self.color_buttons = {}
@@ -316,18 +333,23 @@ class GoogleCalendarSettingsDialog(WidgetSettingsDialog):
 
     def get_config(self):
         config = super().get_config()
+        new_ical_urls = []
+        new_colors = {}
+
+        for url_input, color_button, _ in self.urlInputs:
+            url = url_input.text()
+            if url:
+                new_ical_urls.append(url)
+                color = color_button.palette().button().color().name()
+                new_colors[url] = color
+
         config.update({
-            'ical_urls': [input.text() for input, _ in self.urlInputs if input.text()],
+            'ical_urls': new_ical_urls,
+            'colors': new_colors,  # We gebruiken de nieuwe colors dictionary
             'update_interval': self.update_interval_input.value() * 3600000,
             'num_events': self.num_events_input.value(),
             'date_format': self.date_format_combo.currentText(),
         })
-        
-        for url_input, color_button in self.urlInputs:
-            url = url_input.text()
-            if url:
-                color = color_button.palette().button().color().name()
-                config['colors'][url] = color
 
         for color_key, button in self.color_buttons.items():
             config[color_key] = button.palette().button().color().name()
