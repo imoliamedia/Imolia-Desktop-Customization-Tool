@@ -104,4 +104,4 @@ A: The Imolia Desktop Customization Tool does not collect or transmit any person
 Q: How do I update the application?
 A: Check our GitHub repository for the latest releases. Download and install the new version over the existing one.
 
-For further assistance, please open an issue on our [GitHub repository](https://github.com/ImolaMedia/desktop-customization-tool/issues).
+For further assistance, please open an issue on our [GitHub repository](https://github.com/ImolaMedia/Imolia-Desktop-Customization-Tool/issues).
