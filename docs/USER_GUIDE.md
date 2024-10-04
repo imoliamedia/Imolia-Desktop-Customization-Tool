@@ -10,13 +10,6 @@
 
 ## 1. Installation
 
-### Option 1: Executable (Windows)
-1. Go to the Releases page on our GitHub repository.
-2. Download the latest DesktopCustomizer.zip file.
-3. Extract the contents of the ZIP file to a location of your choice.
-4. Run DesktopCustomizer.exe.
-
-### Option 2: From Source
 1. Clone the repository:
    ```
    git clone https://github.com/ImoliMedia/desktop-customization-tool.git
