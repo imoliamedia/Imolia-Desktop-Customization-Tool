@@ -44,7 +44,7 @@ We welcome contributions! Please see our [Contribution Guidelines](CONTRIBUTING.
 
 ## Widget Development
 
-Interested in creating your own widgets? Check out our [Widget Development Guide](WIDGET_DEVELOPMENT.md).
+Interested in creating your own widgets? Check out our [Widget Development Guide](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/blob/main/docs/WIDGET_DEVELOPMENT.md).
 
 ## License
 
