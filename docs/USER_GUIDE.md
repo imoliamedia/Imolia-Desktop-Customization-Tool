@@ -96,7 +96,7 @@ Q: Can I use the application on multiple monitors?
 A: Yes, the overlay should span across all connected monitors.
 
 Q: How do I create my own widget?
-A: Refer to our [Widget Development Guide](docs/WIDGET_DEVELOPMENT_GUIDE.md) for detailed instructions on creating custom widgets.
+A: Refer to our [Widget Development Guide](/WIDGET_DEVELOPMENT_GUIDE.md) for detailed instructions on creating custom widgets.
 
 Q: Is my data safe?
 A: The Imolia Desktop Customization Tool does not collect or transmit any personal data. All widget configurations are stored locally on your computer.
