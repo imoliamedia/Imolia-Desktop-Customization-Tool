@@ -10,13 +10,7 @@
     "clock_color": "#ff0000",
     "clock_time_format": "hh:mm",
     "active_widgets": [
-        "calculator",
-        "clock_widget",
-        "google_calendar_widget",
-        "modern_todo_widget",
-        "Pomodoro Productivity Timer",
-        "Quick Notes",
-        "system_monitor_widget"
+        "LLMChat"
     ],
     "widget_ClockWidget_position": [
         461,
