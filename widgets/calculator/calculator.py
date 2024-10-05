@@ -9,7 +9,7 @@ import json
 import os
 from PyQt5.QtWidgets import QVBoxLayout, QGridLayout, QPushButton, QLineEdit, QColorDialog, QWidget
 from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtGui import QColor, QPainter, QPolygon
+from PyQt5.QtGui import QColor, QPainter, QPolygon, QKeyEvent
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 import logging
 
@@ -35,6 +35,8 @@ class CalculatorWidget(DraggableWidget):
         self.initUI()
         self.move_handle = MoveHandle(self)
         self.move_handle.move(0, self.height() - 20)
+        self.last_operation = None
+        self.last_number = None
 
     def load_config(self):
         config_path = os.path.join(os.path.dirname(__file__), 'calculator_widget_config.json')
@@ -42,7 +44,7 @@ class CalculatorWidget(DraggableWidget):
             'background_color': '#2C3E50',
             'text_color': '#ECF0F1',
             'button_color': '#34495E',
-            'size': (300, 400),
+            'size': (300, 450),
             'position': (100, 100),
         }
         if os.path.exists(config_path):
@@ -65,15 +67,16 @@ class CalculatorWidget(DraggableWidget):
         layout.addWidget(self.display)
 
         buttons = [
-            '7', '8', '9', '/',
-            '4', '5', '6', '*',
-            '1', '2', '3', '-',
-            '0', '.', '=', '+'
+            'C', '(', ')', '/',
+            '7', '8', '9', '*',
+            '4', '5', '6', '-',
+            '1', '2', '3', '+',
+            '0', '.', '%', '='
         ]
 
         grid_layout = QGridLayout()
 
-        positions = [(i, j) for i in range(4) for j in range(4)]
+        positions = [(i, j) for i in range(5) for j in range(4)]
         for position, button in zip(positions, buttons):
             btn = QPushButton(button)
             btn.clicked.connect(self.on_button_click)
@@ -84,13 +87,14 @@ class CalculatorWidget(DraggableWidget):
         self.setLayout(layout)
         
         self.setMinimumSize(200, 300)
-        size = self.config.get('size', (300, 400))
+        size = self.config.get('size', (300, 450))
         self.resize(*size)
         
         position = self.config.get('position', (100, 100))
         self.move(*position)
 
         self.updateStyle()
+        self.setFocusPolicy(Qt.StrongFocus)
 
     def updateStyle(self):
         bg_color = self.config.get('background_color', '#2C3E50')
@@ -125,17 +129,54 @@ class CalculatorWidget(DraggableWidget):
 
     def on_button_click(self):
         button = self.sender()
+        self.process_input(button.text())
+
+    def process_input(self, input_value):
         current = self.display.text()
         
-        if button.text() == '=':
+        if input_value == 'C':
+            self.display.clear()
+            self.last_operation = None
+            self.last_number = None
+        elif input_value == '=':
             try:
                 result = eval(current)
                 self.display.setText(str(result))
+                self.last_operation = None
+                self.last_number = None
             except Exception as e:
                 self.display.setText("Error")
                 logger.error(f"Calculation error: {e}")
+        elif input_value == '%':
+            try:
+                result = float(eval(current)) / 100
+                self.display.setText(str(result))
+            except Exception as e:
+                self.display.setText("Error")
+                logger.error(f"Percentage calculation error: {e}")
         else:
-            self.display.setText(current + button.text())
+            if self.last_operation and input_value not in '+-*/':
+                self.display.clear()
+            self.display.setText(current + input_value)
+            if input_value in '+-*/':
+                self.last_operation = input_value
+            else:
+                self.last_operation = None
+            self.last_number = input_value
+
+    def keyPressEvent(self, event: QKeyEvent):
+        key = event.text()
+        if key.isdigit() or key in '+-*/.()%':
+            self.process_input(key)
+        elif event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            self.process_input('=')
+        elif event.key() == Qt.Key_Backspace:
+            current = self.display.text()
+            self.display.setText(current[:-1])
+        elif event.key() == Qt.Key_Escape:
+            self.process_input('C')
+        else:
+            super().keyPressEvent(event)
 
     def updateConfig(self, new_config):
         self.config.update(new_config)
