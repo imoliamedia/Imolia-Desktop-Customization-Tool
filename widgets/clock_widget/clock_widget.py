@@ -8,16 +8,17 @@ PyQt5==5.15.6
 
 import json
 import os
-from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QSizeGrip, QDialog, QSpinBox, QColorDialog, 
+from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QDialog, QSpinBox, QColorDialog, 
                              QPushButton, QHBoxLayout, QComboBox, QGroupBox, QFontComboBox)
-from PyQt5.QtCore import QTimer, QTime, Qt, QSize
-from PyQt5.QtGui import QFont, QResizeEvent, QColor
+from PyQt5.QtCore import QTimer, QTime, Qt, QSize, QPoint
+from PyQt5.QtGui import QFont, QResizeEvent, QColor, QPainter, QPen
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
 class ClockWidget(DraggableWidget):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
+        self.resize_handle_size = 10
         self.initUI()
 
     def load_config(self):
@@ -29,6 +30,7 @@ class ClockWidget(DraggableWidget):
             'color': 'white',
             'time_format': 'hh:mm:ss',
             'size': (250, 100),
+            'position': (100, 100),
             'font_family': 'Arial',
             'font_style': 'Normal'
         }
@@ -40,6 +42,7 @@ class ClockWidget(DraggableWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.time_label = QLabel()
         self.time_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.time_label)
@@ -48,10 +51,10 @@ class ClockWidget(DraggableWidget):
         self.setMinimumSize(110, 50)
         size = self.config.get('size', (250, 100))
         self.resize(*size)
+        position = self.config.get('position', (100, 100))
+        self.move(*position)
 
-        size_grip = QSizeGrip(self)
-        layout.addWidget(size_grip, 0, Qt.AlignBottom | Qt.AlignRight)
-
+        self.setAttribute(Qt.WA_TranslucentBackground)
         self.updateStyle()
         
         timer = QTimer(self)
@@ -73,7 +76,7 @@ class ClockWidget(DraggableWidget):
 
     def adjustFont(self):
         font = QFont(self.config.get('font_family', 'Arial'))
-        font.setPixelSize(int(self.height() * 0.5))  # 50% of height
+        font.setPixelSize(int(self.height() * 0.7))
         font_style = self.config.get('font_style', 'Normal')
         if font_style == 'Bold':
             font.setBold(True)
@@ -84,7 +87,20 @@ class ClockWidget(DraggableWidget):
             font.setItalic(True)
         self.time_label.setFont(font)
 
-    def resizeEvent(self, event: QResizeEvent):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Teken alleen de resize handle
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(200, 200, 200, 128))
+        painter.drawRect(self.width() - self.resize_handle_size, 
+                         self.height() - self.resize_handle_size,
+                         self.resize_handle_size,
+                         self.resize_handle_size)
+
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         self.adjustFont()
         self.config['size'] = (self.width(), self.height())

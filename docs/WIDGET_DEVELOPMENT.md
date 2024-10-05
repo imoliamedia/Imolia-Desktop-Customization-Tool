@@ -1,7 +1,7 @@
 # Comprehensive Widget Development Guide for Imolia Desktop Customization Tool
 
 ## Introduction
-This guide has been updated to reflect the current state of widget development for the Imolia Desktop Customization Tool, based on our four working widgets: Clock, System Monitor, Google Calendar, and Modern Todo.
+This guide reflects the current state of widget development for the Imolia Desktop Customization Tool, based on our working widgets including Clock, System Monitor, Google Calendar, Modern Todo, and Calculator.
 
 ## Table of Contents
 1. Widget Basics
@@ -27,6 +27,7 @@ Key concepts:
 - Each widget manages its own configuration
 - Widgets can be resized and moved by the user
 - Widgets should have their own settings dialog
+- Consider implementing a custom move handle for easier widget repositioning
 
 ## 2. Setting Up Your Development Environment
 Ensure you have:
@@ -50,16 +51,30 @@ PyQt5==5.15.6
 
 import json
 import os
-from PyQt5.QtWidgets import QVBoxLayout, QLabel
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtWidgets import QVBoxLayout, QLabel, QWidget
+from PyQt5.QtCore import Qt, QTimer, QPoint
+from PyQt5.QtGui import QFont, QColor, QPainter, QPolygon
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
+
+class MoveHandle(QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setFixedSize(20, 20)
+        self.setCursor(Qt.SizeAllCursor)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setBrush(QColor(100, 100, 100))
+        painter.setPen(Qt.NoPen)
+        painter.drawPolygon(QPolygon([QPoint(0, 20), QPoint(20, 20), QPoint(0, 0)]))
 
 class MyCustomWidget(DraggableWidget):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
         self.initUI()
+        self.move_handle = MoveHandle(self)
+        self.move_handle.move(0, self.height() - 20)
 
     def load_config(self):
         config_path = os.path.join(os.path.dirname(__file__), 'my_custom_widget_config.json')
@@ -119,6 +134,7 @@ class MyCustomWidget(DraggableWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.adjustFontSize()
+        self.move_handle.move(0, self.height() - 20)
         self.config['size'] = (self.width(), self.height())
         self.save_config()
 
@@ -169,7 +185,9 @@ Widget = MyCustomWidget
 - Consider using transparent backgrounds for better desktop integration.
 
 ## 6. Making Your Widget Resizable and Draggable
-The `DraggableWidget` base class provides this functionality. Override `resizeEvent` and `moveEvent` to handle size and position changes.
+The `DraggableWidget` base class provides basic functionality for resizing and moving. 
+- Override `resizeEvent` and `moveEvent` to handle size and position changes.
+- Consider implementing a custom move handle (like `MoveHandle`) for easier repositioning.
 
 ## 7. Implementing Regular Updates
 Use `QTimer` for timed updates, as seen in the System Monitor and Clock widgets.
@@ -196,11 +214,6 @@ Use `QTimer` for timed updates, as seen in the System Monitor and Clock widgets.
 2. Implement your widget as described in this guide.
 3. Ensure the main widget class is aliased as `Widget`.
 4. Restart the Imolia Desktop Customizer application.
-
-# Comprehensive Widget Development Guide for Imolia Desktop Customization Tool
-
-## Introduction
-This guide reflects the current state of widget development for the Imolia Desktop Customization Tool, updated based on our experiences with various widgets including the Clock, System Monitor, Google Calendar, Modern Todo, and Pomodoro Timer.
 
 ## 12. Handling Dependencies
 - List all dependencies at the top of your widget file in a comment block.
@@ -259,5 +272,8 @@ logger.error("Error message")
   - Ensure that the `install_dependencies` method is implemented and called.
   - Verify that the correct Python interpreter is being used (especially in virtual environments).
   - Check for any conflicts between widget dependencies and the main application.
+- Move handle not working properly:
+  - Ensure the `MoveHandle` is correctly positioned and sized.
+  - Verify that `resizeEvent` is updating the position of the move handle.
 
 Remember to thoroughly test your widget in various scenarios and with different configurations to ensure stability and performance. Always provide clear error messages and logging to help diagnose issues that may arise during development or use.

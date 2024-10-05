@@ -10,9 +10,9 @@
     "clock_color": "#ff0000",
     "clock_time_format": "hh:mm",
     "active_widgets": [
+        "calculator",
         "clock_widget",
         "google_calendar_widget",
-        "Image Format Converter",
         "modern_todo_widget",
         "Pomodoro Productivity Timer",
         "Quick Notes",
