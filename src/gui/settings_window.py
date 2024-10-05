@@ -14,6 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import logging
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QCheckBox, QPushButton, QTabWidget, QSplitter,
                              QWidget, QListWidget, QListWidgetItem, QStyle, QFrame)
@@ -31,29 +32,49 @@ class SettingsWindow(QDialog):
 
     def initUI(self):
         self.setWindowTitle(f"{APP_NAME} - Settings")
-        self.setGeometry(300, 300, 500, 400)
+        self.setGeometry(300, 300, 500, 600)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        
+        # Probeer verschillende icoonfpaden
+        icon_paths = [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "icons", "tray_icon.png"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "icons", "tray_icon.ico"),
+            os.path.abspath("resources/icons/tray_icon.png"),
+            os.path.abspath("resources/icons/tray_icon.ico")
+        ]
+        
+        icon_set = False
+        for icon_path in icon_paths:
+            if os.path.exists(icon_path):
+                logging.info(f"Icoon gevonden op pad: {icon_path}")
+                icon = QIcon(icon_path)
+                self.setWindowIcon(icon)
+                icon_set = True
+                break
+        
+        if not icon_set:
+            logging.error("Geen icoon gevonden op de verwachte locaties.")
         
         main_layout = QVBoxLayout(self)
         
-        # Bovenste sectie met vaste grootte
+        # Top section with fixed size
         top_widget = QWidget()
         top_layout = QVBoxLayout(top_widget)
         self.setup_header(top_layout)
         top_widget.setFixedHeight(top_widget.sizeHint().height())
         
-        # Onderste sectie (uitbreidbaar)
+        # Bottom section (expandable)
         bottom_widget = QWidget()
         bottom_layout = QVBoxLayout(bottom_widget)
         self.setup_tabs(bottom_layout)
         self.setup_buttons(bottom_layout)
         
-        # QSplitter om de secties te scheiden
+        # QSplitter to separate sections
         splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(top_widget)
         splitter.addWidget(bottom_widget)
-        splitter.setStretchFactor(0, 0)  # Bovenste sectie niet uitbreidbaar
-        splitter.setStretchFactor(1, 1)  # Onderste sectie uitbreidbaar
+        splitter.setStretchFactor(0, 0)  # Top section not stretchable
+        splitter.setStretchFactor(1, 1)  # Bottom section stretchable
         
         main_layout.addWidget(splitter)
         
@@ -62,16 +83,6 @@ class SettingsWindow(QDialog):
     def setup_header(self, layout):
         header_layout = QVBoxLayout()
 
-        self.logo_label = QLabel()
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "logo.png")
-        try:
-            logo_pixmap = QPixmap(logo_path).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.logo_label.setPixmap(logo_pixmap)
-        except:
-            print(f"Could not load logo from {logo_path}")
-        
-        header_layout.addWidget(self.logo_label)
-
         self.title_label = QLabel(APP_NAME)
         self.title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         header_layout.addWidget(self.title_label)
@@ -79,8 +90,6 @@ class SettingsWindow(QDialog):
         github_label = QLabel('<a href="https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/tree/main/widgets">Download widgets from GitHub</a>')
         github_label.setOpenExternalLinks(True)
         header_layout.addWidget(github_label)
-
-        header_layout.addStretch()
 
         layout.addLayout(header_layout)
 
