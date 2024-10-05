@@ -10,13 +10,6 @@
 
 ## 1. Installation
 
-### Option 1: Executable (Windows)
-1. Go to the Releases page on our GitHub repository.
-2. Download the latest DesktopCustomizer.zip file.
-3. Extract the contents of the ZIP file to a location of your choice.
-4. Run DesktopCustomizer.exe.
-
-### Option 2: From Source
 1. Clone the repository:
    ```
    git clone https://github.com/ImoliMedia/desktop-customization-tool.git
@@ -103,7 +96,7 @@ Q: Can I use the application on multiple monitors?
 A: Yes, the overlay should span across all connected monitors.
 
 Q: How do I create my own widget?
-A: Refer to our [Widget Development Guide](docs/WIDGET_DEVELOPMENT_GUIDE.md) for detailed instructions on creating custom widgets.
+A: Refer to our [Widget Development Guide](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/blob/main/docs/WIDGET_DEVELOPMENT.md) for detailed instructions on creating custom widgets.
 
 Q: Is my data safe?
 A: The Imolia Desktop Customization Tool does not collect or transmit any personal data. All widget configurations are stored locally on your computer.
@@ -111,4 +104,4 @@ A: The Imolia Desktop Customization Tool does not collect or transmit any person
 Q: How do I update the application?
 A: Check our GitHub repository for the latest releases. Download and install the new version over the existing one.
 
-For further assistance, please open an issue on our [GitHub repository](https://github.com/ImolaMedia/desktop-customization-tool/issues).
+For further assistance, please open an issue on our [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).

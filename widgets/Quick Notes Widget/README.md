@@ -7,7 +7,6 @@ The Quick Notes Widget is a simple yet powerful tool for the Imolia Desktop Cust
 - Draggable and resizable widget
 - Real-time text editing
 - Auto-save functionality (every 30 seconds)
-- Clear button to quickly erase all notes
 - Customizable appearance (background color, text color, and font)
 - Persistent storage of notes and widget configuration
 
