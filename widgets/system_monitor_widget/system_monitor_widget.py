@@ -100,7 +100,7 @@ class SystemMonitorWidget(DraggableWidget):
         self.setStyleSheet(f"""
             QLabel {{
                 color: {color};
-                background-color: rgba(0, 0, 0, 100);
+                background-color: transparent;
                 border-radius: 5px;
                 padding: 2px;
             }}

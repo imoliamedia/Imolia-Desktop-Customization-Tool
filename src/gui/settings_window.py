@@ -15,7 +15,7 @@
 
 import os
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QCheckBox, QPushButton, QTabWidget, 
+                             QCheckBox, QPushButton, QTabWidget, QSplitter,
                              QWidget, QListWidget, QListWidgetItem, QStyle, QFrame)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QPixmap
@@ -34,17 +34,33 @@ class SettingsWindow(QDialog):
         self.setGeometry(300, 300, 500, 400)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         
-        self.main_layout = QVBoxLayout()
+        main_layout = QVBoxLayout(self)
         
-        self.setup_header()
-        self.setup_tabs()
-        self.setup_buttons()
-
-        self.setLayout(self.main_layout)
+        # Bovenste sectie met vaste grootte
+        top_widget = QWidget()
+        top_layout = QVBoxLayout(top_widget)
+        self.setup_header(top_layout)
+        top_widget.setFixedHeight(top_widget.sizeHint().height())
+        
+        # Onderste sectie (uitbreidbaar)
+        bottom_widget = QWidget()
+        bottom_layout = QVBoxLayout(bottom_widget)
+        self.setup_tabs(bottom_layout)
+        self.setup_buttons(bottom_layout)
+        
+        # QSplitter om de secties te scheiden
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(top_widget)
+        splitter.addWidget(bottom_widget)
+        splitter.setStretchFactor(0, 0)  # Bovenste sectie niet uitbreidbaar
+        splitter.setStretchFactor(1, 1)  # Onderste sectie uitbreidbaar
+        
+        main_layout.addWidget(splitter)
+        
         self.apply_styles()
 
-    def setup_header(self):
-        header_layout = QVBoxLayout()  # Gebruik een verticale layout om elementen onder elkaar te plaatsen
+    def setup_header(self, layout):
+        header_layout = QVBoxLayout()
 
         self.logo_label = QLabel()
         logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "logo.png")
@@ -54,38 +70,31 @@ class SettingsWindow(QDialog):
         except:
             print(f"Could not load logo from {logo_path}")
         
-        # Voeg het logo toe aan de layout
         header_layout.addWidget(self.logo_label)
 
-        # Voeg de titel van de app toe
         self.title_label = QLabel(APP_NAME)
         self.title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         header_layout.addWidget(self.title_label)
 
-        # Voeg de GitHub-link onder de titel toe
         github_label = QLabel('<a href="https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/tree/main/widgets">Download widgets from GitHub</a>')
-        github_label.setOpenExternalLinks(True)  # Zorgt ervoor dat de link klikbaar is
+        github_label.setOpenExternalLinks(True)
         header_layout.addWidget(github_label)
 
-        # Voeg een verticale stretch toe zodat de header compact blijft
         header_layout.addStretch()
 
-        # Voeg de header layout toe aan de hoofd layout
-        self.main_layout.addLayout(header_layout)
+        layout.addLayout(header_layout)
 
-        # Voeg hier een scheidingslijn toe (bijv. een lijn onder de header)
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
-        self.main_layout.addWidget(line)
+        layout.addWidget(line)
 
-
-    def setup_tabs(self):
+    def setup_tabs(self, layout):
         self.tab_widget = QTabWidget()
         self.tab_widget.addTab(self.createWidgetManagerTab(), "Widgets")
-        self.main_layout.addWidget(self.tab_widget)
+        layout.addWidget(self.tab_widget)
 
-    def setup_buttons(self):
+    def setup_buttons(self, layout):
         button_layout = QHBoxLayout()
         self.save_button = QPushButton("Save")
         self.save_button.setStyleSheet("background-color: #4CAF50; color: white; padding: 5px 15px;")
@@ -95,7 +104,7 @@ class SettingsWindow(QDialog):
         self.cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.cancel_button)
-        self.main_layout.addLayout(button_layout)
+        layout.addLayout(button_layout)
 
     def createWidgetManagerTab(self):
         tab = QWidget()

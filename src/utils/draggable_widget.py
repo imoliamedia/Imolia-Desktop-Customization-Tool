@@ -111,20 +111,19 @@ class WidgetSettingsDialog(QDialog):
     def __init__(self, widget, parent=None):
         super().__init__(parent)
         self.widget = widget
-        self.setWindowTitle(f"{self.widget.__class__.__name__} Instellingen")
+        self.setWindowTitle(f"{self.widget.__class__.__name__} Settings")
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
         
-        self.add_appearance_section(layout)
         self.add_behavior_section(layout)
         self.add_custom_section(layout)
         
         button_layout = QHBoxLayout()
-        save_button = QPushButton("Opslaan")
+        save_button = QPushButton("Save")
         save_button.clicked.connect(self.save_settings)
-        cancel_button = QPushButton("Annuleren")
+        cancel_button = QPushButton("Cancel")
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(save_button)
         button_layout.addWidget(cancel_button)
@@ -132,27 +131,12 @@ class WidgetSettingsDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
 
-    def add_appearance_section(self, layout):
-        appearance_group = QGroupBox("Uiterlijk")
-        appearance_layout = QVBoxLayout()
-        
-        color_layout = QHBoxLayout()
-        color_layout.addWidget(QLabel("Kleur:"))
-        self.color_button = QPushButton()
-        self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', 'white')};")
-        self.color_button.clicked.connect(self.choose_color)
-        color_layout.addWidget(self.color_button)
-        appearance_layout.addLayout(color_layout)
-        
-        appearance_group.setLayout(appearance_layout)
-        layout.addWidget(appearance_group)
-
     def add_behavior_section(self, layout):
-        behavior_group = QGroupBox("Gedrag")
+        behavior_group = QGroupBox("Behavior")
         behavior_layout = QVBoxLayout()
         
         update_layout = QHBoxLayout()
-        update_layout.addWidget(QLabel("Update interval (seconden):"))
+        update_layout.addWidget(QLabel("Update interval (seconds):"))
         self.update_interval = QSpinBox()
         self.update_interval.setRange(1, 3600)
         self.update_interval.setValue(self.widget.config.get('update_interval', 60))
