@@ -156,16 +156,32 @@ class ClockSettingsDialog(WidgetSettingsDialog):
         self.font_style_combo.setCurrentText(self.widget.config.get('font_style', 'Normal'))
         font_style_layout.addWidget(self.font_style_combo)
         custom_layout.addLayout(font_style_layout)
+
+        # Color picker
+        color_layout = QHBoxLayout()
+        color_layout.addWidget(QLabel("Clock color:"))
+        self.color_button = QPushButton()
+        self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', 'white')};")
+        self.color_button.clicked.connect(self.choose_color)
+        color_layout.addWidget(self.color_button)
+        custom_layout.addLayout(color_layout)
         
         custom_group.setLayout(custom_layout)
         layout.addWidget(custom_group)
+
+    def choose_color(self):
+        color = QColorDialog.getColor(QColor(self.widget.config.get('color', 'white')))
+        if color.isValid():
+            self.color_button.setStyleSheet(f"background-color: {color.name()};")
+            self.widget.config['color'] = color.name()
 
     def get_config(self):
         config = super().get_config()
         config.update({
             'time_format': self.format_combo.currentText(),
             'font_family': self.font_family_combo.currentFont().family(),
-            'font_style': self.font_style_combo.currentText()
+            'font_style': self.font_style_combo.currentText(),
+            'color': self.widget.config['color']
         })
         return config
 

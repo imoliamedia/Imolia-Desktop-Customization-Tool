@@ -10,7 +10,8 @@
     "clock_color": "#ff0000",
     "clock_time_format": "hh:mm",
     "active_widgets": [
-        "LLMChat"
+        "calculator",
+        "clock_widget"
     ],
     "widget_ClockWidget_position": [
         461,
