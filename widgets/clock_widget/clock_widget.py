@@ -1,5 +1,5 @@
 """
-Clock Widget for Imolia Desktop Customizer
+Clock Widget for Imolia Desktop Customization Tool
 
 Dependencies:
 PyQt5==5.15.6
@@ -27,7 +27,7 @@ class ClockWidget(DraggableWidget):
             with open(config_path, 'r') as f:
                 return json.load(f)
         return {
-            'color': 'white',
+            'color': '#FFFFFF',  # White color by default
             'time_format': 'hh:mm:ss',
             'size': (250, 100),
             'position': (100, 100),
@@ -70,7 +70,7 @@ class ClockWidget(DraggableWidget):
         self.time_label.setText(time_text)
 
     def updateStyle(self):
-        color = self.config.get('color', 'white')
+        color = self.config.get('color', '#FFFFFF')
         self.time_label.setStyleSheet(f"color: {color}; background-color: transparent;")
         self.adjustFont()
 
@@ -92,7 +92,7 @@ class ClockWidget(DraggableWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        # Teken alleen de resize handle
+        # Draw only the resize handle
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor(200, 200, 200, 128))
         painter.drawRect(self.width() - self.resize_handle_size, 
@@ -157,11 +157,11 @@ class ClockSettingsDialog(WidgetSettingsDialog):
         font_style_layout.addWidget(self.font_style_combo)
         custom_layout.addLayout(font_style_layout)
 
-        # Color picker
+        # Color
         color_layout = QHBoxLayout()
-        color_layout.addWidget(QLabel("Clock color:"))
+        color_layout.addWidget(QLabel("Text color:"))
         self.color_button = QPushButton()
-        self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', 'white')};")
+        self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', '#FFFFFF')};")
         self.color_button.clicked.connect(self.choose_color)
         color_layout.addWidget(self.color_button)
         custom_layout.addLayout(color_layout)
@@ -170,7 +170,7 @@ class ClockSettingsDialog(WidgetSettingsDialog):
         layout.addWidget(custom_group)
 
     def choose_color(self):
-        color = QColorDialog.getColor(QColor(self.widget.config.get('color', 'white')))
+        color = QColorDialog.getColor(QColor(self.widget.config.get('color', '#FFFFFF')))
         if color.isValid():
             self.color_button.setStyleSheet(f"background-color: {color.name()};")
             self.widget.config['color'] = color.name()
@@ -181,7 +181,7 @@ class ClockSettingsDialog(WidgetSettingsDialog):
             'time_format': self.format_combo.currentText(),
             'font_family': self.font_family_combo.currentFont().family(),
             'font_style': self.font_style_combo.currentText(),
-            'color': self.widget.config['color']
+            'color': self.widget.config['color']  # Use the color set by choose_color
         })
         return config
 

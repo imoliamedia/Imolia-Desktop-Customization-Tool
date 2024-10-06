@@ -11,7 +11,13 @@
     "clock_time_format": "hh:mm",
     "active_widgets": [
         "calculator",
-        "clock_widget"
+        "clock_widget",
+        "google_calendar_widget",
+        "LLMChat",
+        "modern_todo_widget",
+        "Pomodoro Productivity Timer",
+        "Quick Notes",
+        "system_monitor_widget"
     ],
     "widget_ClockWidget_position": [
         461,
