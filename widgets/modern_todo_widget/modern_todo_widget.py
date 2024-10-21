@@ -19,6 +19,7 @@ class ModernToDoWidget(DraggableWidget):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
+        self.tasks = self.load_tasks()
         self.initUI()
 
     def load_config(self):
@@ -41,6 +42,18 @@ class ModernToDoWidget(DraggableWidget):
         with open(config_path, 'w') as f:
             json.dump(self.config, f)
 
+    def load_tasks(self):
+        tasks_path = os.path.join(os.path.dirname(__file__), 'modern_todo_widget_tasks.json')
+        if os.path.exists(tasks_path):
+            with open(tasks_path, 'r') as f:
+                return json.load(f)
+        return []
+
+    def save_tasks(self):
+        tasks_path = os.path.join(os.path.dirname(__file__), 'modern_todo_widget_tasks.json')
+        with open(tasks_path, 'w') as f:
+            json.dump(self.tasks, f)
+
     def initUI(self):
         layout = QVBoxLayout()
         layout.setSpacing(10)
@@ -55,6 +68,7 @@ class ModernToDoWidget(DraggableWidget):
         input_layout = QHBoxLayout()
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText("Enter a new task...")
+        self.input_field.returnPressed.connect(self.add_task)
         self.add_button = QPushButton("Add")
         self.add_button.clicked.connect(self.add_task)
         input_layout.addWidget(self.input_field)
@@ -93,6 +107,7 @@ class ModernToDoWidget(DraggableWidget):
         self.move(*position)
 
         self.updateStyle()
+        self.load_saved_tasks()
 
     def updateStyle(self):
         bg_color = self.config.get('bg_color', '#2C3E50')
@@ -169,6 +184,15 @@ class ModernToDoWidget(DraggableWidget):
         self.config['position'] = (self.x(), self.y())
         self.save_config()
 
+    def load_saved_tasks(self):
+        for task in self.tasks:
+            item = QListWidgetItem(task['text'])
+            item.setFlags(item.flags() | Qt.ItemIsEditable)
+            if task['completed']:
+                item.setText(f"✓ {task['text']}")
+                item.setForeground(QColor(self.config.get('button_color', '#3498DB')))
+            self.task_list.addItem(item)
+
     @pyqtSlot()
     def add_task(self):
         task = self.input_field.text()
@@ -177,25 +201,39 @@ class ModernToDoWidget(DraggableWidget):
             item.setFlags(item.flags() | Qt.ItemIsEditable)
             self.task_list.addItem(item)
             self.input_field.clear()
+            self.tasks.append({'text': task, 'completed': False})
+            self.save_tasks()
 
     @pyqtSlot(QListWidgetItem)
     def edit_task(self, item):
         self.task_list.editItem(item)
+        index = self.task_list.row(item)
+        self.tasks[index]['text'] = item.text().lstrip("✓ ")
+        self.save_tasks()
 
     @pyqtSlot()
     def complete_task(self):
         current_item = self.task_list.currentItem()
         if current_item:
             current_text = current_item.text()
+            index = self.task_list.row(current_item)
             if not current_text.startswith("✓ "):
                 current_item.setText(f"✓ {current_text}")
                 current_item.setForeground(QColor(self.config.get('button_color', '#3498DB')))
+                self.tasks[index]['completed'] = True
+            else:
+                current_item.setText(current_text[2:])
+                current_item.setForeground(QColor(self.config.get('item_text_color', '#ECF0F1')))
+                self.tasks[index]['completed'] = False
+            self.save_tasks()
 
     @pyqtSlot()
     def remove_task(self):
         current_row = self.task_list.currentRow()
         if current_row >= 0:
             self.task_list.takeItem(current_row)
+            del self.tasks[current_row]
+            self.save_tasks()
 
     def updateConfig(self, new_config):
         self.config.update(new_config)
