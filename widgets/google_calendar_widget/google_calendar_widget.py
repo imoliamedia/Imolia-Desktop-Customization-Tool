@@ -1,5 +1,5 @@
 """
-Google Calendar Widget for Imolia Desktop Customizer
+Google Calendar Widget voor Imolia Desktop Customizer
 
 Dependencies:
 PyQt5==5.15.6
@@ -11,16 +11,89 @@ requests==2.28.1
 
 import json
 import os
+import logging
+from datetime import datetime, timedelta, date
+import traceback
+
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QCalendarWidget, 
                              QListWidget, QListWidgetItem, QPushButton, QDialog, 
-                             QFormLayout, QLineEdit, QSpinBox, QLabel, QColorDialog, QComboBox)
+                             QFormLayout, QLineEdit, QSpinBox, QLabel, QColorDialog, QComboBox,
+                             QApplication, QMessageBox, QGroupBox, QWidget)
 from PyQt5.QtCore import Qt, QTimer, QDate
 from PyQt5.QtGui import QColor, QTextCharFormat
-import icalendar
-import recurring_ical_events
-import requests
-from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
-from datetime import datetime, timedelta, date
+
+# Importeer dependencies voor Google Calendar
+try:
+    import icalendar
+    import recurring_ical_events
+    import requests
+except ImportError as e:
+    # Toon foutmelding maar crash niet
+    logging.error(f"Fout bij importeren van Google Calendar dependencies: {e}")
+
+# Probeer eerst de absolute import voor draggable_widget
+try:
+    from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
+except ImportError:
+    # Als dat niet lukt, probeer relatieve import vanuit de huidige map
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
+    except ImportError:
+        # Als laatste optie, probeer het bestand direct te importeren
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(os.path.dirname(current_dir))
+        sys.path.insert(0, parent_dir)
+        
+        # Fallback implementatie als niets werkt
+        from PyQt5.QtWidgets import QWidget
+        
+        class DraggableWidget(QWidget):
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+                self.setAttribute(Qt.WA_TranslucentBackground)
+                self.dragging = False
+                self.offset = None
+                self.config = self.load_config()
+            
+            def load_config(self):
+                return {}
+                
+            def save_config(self):
+                pass
+                
+            def mousePressEvent(self, event):
+                if event.button() == Qt.LeftButton:
+                    self.dragging = True
+                    self.offset = event.pos()
+
+            def mouseMoveEvent(self, event):
+                if self.dragging and self.offset:
+                    self.move(self.mapToParent(event.pos() - self.offset))
+                    
+            def mouseReleaseEvent(self, event):
+                self.dragging = False
+                
+            def updateConfig(self, new_config):
+                pass
+                
+            def openSettings(self):
+                pass
+        
+        class WidgetSettingsDialog(QDialog):
+            def __init__(self, widget, parent=None):
+                super().__init__(parent)
+                self.widget = widget
+                
+            def get_config(self):
+                return {}
+
+# Logger instellen
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("GoogleCalendarWidget")
 
 class GoogleCalendarWidget(DraggableWidget):
     def __init__(self):
@@ -28,13 +101,15 @@ class GoogleCalendarWidget(DraggableWidget):
         self.config = self.load_config()
         self.initUI()
         self.setupUpdateTimer()
+        logger.info("Google Calendar Widget geïnitialiseerd")
 
     def load_config(self):
+        """Laad configuratie uit bestand of gebruik standaardwaarden."""
         config_path = os.path.join(os.path.dirname(__file__), 'google_calendar_widget_config.json')
         default_config = {
             'ical_urls': [],
             'colors': {},
-            'update_interval': 3600000,  # 1 hour in milliseconds
+            'update_interval': 3600000,  # 1 uur in milliseconden
             'num_events': 5,
             'widget_bg_color': '#FFFFFF',
             'widget_text_color': '#000000',
@@ -47,318 +122,591 @@ class GoogleCalendarWidget(DraggableWidget):
             'size': (400, 600),
             'position': (100, 100)
         }
+        
         if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                loaded_config = json.load(f)
-                default_config.update(loaded_config)
+            try:
+                with open(config_path, 'r') as f:
+                    loaded_config = json.load(f)
+                    logger.info(f"Configuratie geladen uit: {config_path}")
+                    # Update default_config met instellingen uit bestand
+                    default_config.update(loaded_config)
+            except Exception as e:
+                logger.error(f"Fout bij laden configuratie: {e}")
+                logger.error(traceback.format_exc())
+        else:
+            logger.info(f"Geen configuratiebestand gevonden, standaardinstellingen worden gebruikt")
+        
         return default_config
 
     def save_config(self):
+        """Sla configuratie op in bestand."""
         config_path = os.path.join(os.path.dirname(__file__), 'google_calendar_widget_config.json')
-        with open(config_path, 'w') as f:
-            json.dump(self.config, f)
+        try:
+            with open(config_path, 'w') as f:
+                json.dump(self.config, f, indent=4)
+            logger.info(f"Configuratie opgeslagen naar: {config_path}")
+        except Exception as e:
+            logger.error(f"Fout bij opslaan configuratie: {e}")
+            logger.error(traceback.format_exc())
 
     def initUI(self):
-        layout = QVBoxLayout(self)
-        
-        self.calendar = QCalendarWidget()
-        self.calendar.setSelectedDate(QDate.currentDate())
-        self.calendar.selectionChanged.connect(self.updateEventList)
-        layout.addWidget(self.calendar)
-        
-        self.eventList = QListWidget()
-        layout.addWidget(self.eventList)
-        
-        self.setLayout(layout)
-        
-        size = self.config.get('size', (400, 600))
-        self.resize(*size)
-        
-        position = self.config.get('position', (100, 100))
-        self.move(*position)
-        
-        self.updateStyle()
-        self.updateCalendar()
+        """Initialiseer gebruikersinterface."""
+        try:
+            layout = QVBoxLayout(self)
+            
+            self.calendar = QCalendarWidget()
+            self.calendar.setSelectedDate(QDate.currentDate())
+            self.calendar.selectionChanged.connect(self.updateEventList)
+            layout.addWidget(self.calendar)
+            
+            self.eventList = QListWidget()
+            layout.addWidget(self.eventList)
+            
+            self.setLayout(layout)
+            
+            # Stel grootte en positie in vanuit configuratie
+            size = self.config.get('size', (400, 600))
+            self.resize(*size)
+            
+            position = self.config.get('position', (100, 100))
+            self.move(*position)
+            
+            # Pas stijl aan en haal events op
+            self.updateStyle()
+            self.updateCalendar()
+            
+            logger.info("UI geïnitialiseerd")
+        except Exception as e:
+            logger.error(f"Fout bij initialiseren UI: {e}")
+            logger.error(traceback.format_exc())
 
     def setupUpdateTimer(self):
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.updateCalendar)
-        self.timer.start(self.config['update_interval'])
+        """Stel timer in voor automatisch verversen van kalendergebeurtenissen."""
+        try:
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.updateCalendar)
+            self.timer.start(self.config['update_interval'])
+            logger.info(f"Update timer ingesteld op {self.config['update_interval']} ms")
+        except Exception as e:
+            logger.error(f"Fout bij instellen update timer: {e}")
+            logger.error(traceback.format_exc())
 
     def updateCalendar(self):
-        events = self.fetchEvents()
-        self.updateCalendarWithEvents(events)
-        self.showUpcomingEvents()
+        """Haal events op en werk de kalender bij."""
+        try:
+            events = self.fetchEvents()
+            self.updateCalendarWithEvents(events)
+            self.showUpcomingEvents()
+            logger.info("Kalender bijgewerkt")
+        except Exception as e:
+            logger.error(f"Fout bij bijwerken kalender: {e}")
+            logger.error(traceback.format_exc())
 
     def fetchEvents(self):
+        """Haal gebeurtenissen op van ical URLs."""
         all_events = []
+        
+        if not self.config['ical_urls']:
+            logger.warning("Geen iCal URLs geconfigureerd")
+            return all_events
+            
         for url in self.config['ical_urls']:
             try:
+                logger.info(f"Events ophalen van: {url}")
                 response = requests.get(url)
-                if not response.text.startswith('BEGIN:VCALENDAR'):
-                    print(f"Error: The URL {url} does not appear to be a valid iCalendar feed.")
+                cal_text = response.text
+                
+                if not cal_text.startswith('BEGIN:VCALENDAR'):
+                    logger.error(f"URL is geen geldige iCalendar feed: {url}")
                     continue
-                cal = icalendar.Calendar.from_ical(response.text)
+                    
+                cal = icalendar.Calendar.from_ical(cal_text)
                 start_date = datetime.now().date()
                 end_date = start_date + timedelta(days=365)
                 events = recurring_ical_events.of(cal).between(start_date, end_date)
+                
                 for event in events:
                     event['CALENDAR_URL'] = url
+                    
                 all_events.extend(events)
+                logger.info(f"{len(events)} events opgehaald van {url}")
             except Exception as e:
-                print(f"Error fetching calendar from {url}: {e}")
+                logger.error(f"Fout bij ophalen kalender van {url}: {e}")
+                logger.error(traceback.format_exc())
+                
         return all_events
 
     def updateCalendarWithEvents(self, events):
-        self.calendar.setDateTextFormat(QDate(), QTextCharFormat())
-        for event in events:
-            event_date = event.get('DTSTART').dt
-            if isinstance(event_date, datetime):
-                event_date = event_date.date()
-            format = QTextCharFormat()
-            format.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
-            self.calendar.setDateTextFormat(QDate(event_date), format)
+        """Werk kalender bij met events en markeer datums met gebeurtenissen."""
+        try:
+            # Reset alle datums naar standaard stijl
+            self.calendar.setDateTextFormat(QDate(), QTextCharFormat())
+            
+            for event in events:
+                event_date = event.get('DTSTART').dt
+                if isinstance(event_date, datetime):
+                    event_date = event_date.date()
+                    
+                # Maak een tekstopmaak voor deze datum
+                format = QTextCharFormat()
+                event_color = self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')
+                format.setBackground(QColor(event_color))
+                
+                # Stel de opmaak in voor deze datum
+                qdate = QDate(event_date.year, event_date.month, event_date.day)
+                self.calendar.setDateTextFormat(qdate, format)
+        except Exception as e:
+            logger.error(f"Fout bij bijwerken kalender met events: {e}")
+            logger.error(traceback.format_exc())
 
     def updateEventList(self):
-        selected_date = self.calendar.selectedDate().toPyDate()
-        if selected_date == datetime.now().date():
-            self.showUpcomingEvents()
-        else:
-            self.eventList.clear()
-            events = self.fetchEvents()
-            events_on_date = [
-                e for e in events
-                if (isinstance(e.get('DTSTART').dt, datetime) and e.get('DTSTART').dt.date() == selected_date) or
-                   (isinstance(e.get('DTSTART').dt, date) and e.get('DTSTART').dt == selected_date)
-            ]
+        """Werk eventlijst bij voor geselecteerde datum."""
+        try:
+            selected_date = self.calendar.selectedDate().toPyDate()
             
+            # Als vandaag is geselecteerd, toon aankomende events
+            if selected_date == datetime.now().date():
+                self.showUpcomingEvents()
+                return
+            
+            # Wis de huidige lijst
+            self.eventList.clear()
+            
+            # Haal events op en filter op geselecteerde datum
+            events = self.fetchEvents()
+            events_on_date = []
+            
+            for e in events:
+                start_dt = e.get('DTSTART').dt
+                event_date = start_dt.date() if isinstance(start_dt, datetime) else start_dt
+                if event_date == selected_date:
+                    events_on_date.append(e)
+            
+            # Sorteer op starttijd
             events_on_date.sort(key=lambda x: x.get('DTSTART').dt)
+            
+            # Voeg events toe aan lijst (beperkt tot ingesteld aantal)
             for event in events_on_date[:self.config['num_events']]:
                 start_time = event.get('DTSTART').dt
                 if isinstance(start_time, datetime):
                     start_time_str = start_time.strftime('%H:%M')
                 else:
-                    start_time_str = "All day"
-                item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
-                item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
+                    start_time_str = "Hele dag"
+                    
+                summary = event.get('SUMMARY', '')
+                item = QListWidgetItem(f"{start_time_str} - {summary}")
+                
+                # Stel de achtergrondkleur in o.b.v. de URL
+                color = self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')
+                item.setBackground(QColor(color))
+                
                 self.eventList.addItem(item)
+                
+            logger.info(f"{len(events_on_date)} events getoond voor {selected_date}")
+        except Exception as e:
+            logger.error(f"Fout bij bijwerken eventlijst: {e}")
+            logger.error(traceback.format_exc())
 
     def showUpcomingEvents(self):
-        self.eventList.clear()
-        events = self.fetchEvents()
-        now = datetime.now()
-        
-        def get_start_datetime(event):
-            start = event.get('DTSTART').dt
-            if isinstance(start, date) and not isinstance(start, datetime):
-                return datetime.combine(start, datetime.min.time())
-            return start.replace(tzinfo=None) if start.tzinfo else start
-
-        upcoming_events = []
-        for e in events:
-            event_start = get_start_datetime(e)
-            if event_start >= now:
-                upcoming_events.append((event_start, e))
-        
-        upcoming_events.sort(key=lambda x: x[0])
-
-        displayed_events = []
-        for start_time, event in upcoming_events:
-            if len(displayed_events) >= self.config['num_events']:
-                break
+        """Toon aankomende gebeurtenissen in de eventlijst."""
+        try:
+            self.eventList.clear()
+            events = self.fetchEvents()
+            now = datetime.now()
             
-            event_key = (start_time, event.get('SUMMARY', ''))
-            if event_key not in displayed_events:
-                displayed_events.append(event_key)
-                start_time_str = self.format_date(start_time)
-                item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
-                item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
-                self.eventList.addItem(item)
+            # Hulpfunctie voor het omzetten van datum naar datetime
+            def get_start_datetime(event):
+                start = event.get('DTSTART').dt
+                if isinstance(start, date) and not isinstance(start, datetime):
+                    return datetime.combine(start, datetime.min.time())
+                return start.replace(tzinfo=None) if start.tzinfo else start
+            
+            # Filter events die in de toekomst liggen
+            upcoming_events = []
+            for e in events:
+                event_start = get_start_datetime(e)
+                if event_start >= now:
+                    upcoming_events.append((event_start, e))
+            
+            # Sorteer op startdatum/-tijd
+            upcoming_events.sort(key=lambda x: x[0])
+            
+            # Voorkom dubbele events
+            displayed_events = []
+            
+            # Toon events in de lijst
+            for start_time, event in upcoming_events:
+                if len(displayed_events) >= self.config['num_events']:
+                    break
+                
+                # Maak een unieke sleutel voor dit event
+                event_key = (start_time, event.get('SUMMARY', ''))
+                
+                # Voeg toe als dit event nog niet is weergegeven
+                if event_key not in displayed_events:
+                    displayed_events.append(event_key)
+                    
+                    # Formatteer de datum/tijd
+                    start_time_str = self.format_date(start_time)
+                    
+                    # Maak een nieuw item
+                    item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
+                    
+                    # Stel de achtergrondkleur in
+                    item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
+                    
+                    # Voeg toe aan lijst
+                    self.eventList.addItem(item)
+                    
+            logger.info(f"{len(displayed_events)} aankomende events getoond")
+        except Exception as e:
+            logger.error(f"Fout bij tonen aankomende events: {e}")
+            logger.error(traceback.format_exc())
 
-    def format_date(self, date):
-        date_format = self.config['date_format']
-        if date_format == 'dd/mm/yyyy':
-            return date.strftime('%d/%m/%Y %H:%M') if isinstance(date, datetime) else date.strftime('%d/%m/%Y')
-        elif date_format == 'mm/dd/yyyy':
-            return date.strftime('%m/%d/%Y %H:%M') if isinstance(date, datetime) else date.strftime('%m/%d/%Y')
-        else:  # yyyy-mm-dd
-            return date.strftime('%Y-%m-%d %H:%M') if isinstance(date, datetime) else date.strftime('%Y-%m-%d')
+    def format_date(self, date_obj):
+        """Formatteer datum volgens ingesteld formaat."""
+        try:
+            date_format = self.config['date_format']
+            if date_format == 'dd/mm/yyyy':
+                return date_obj.strftime('%d/%m/%Y %H:%M') if isinstance(date_obj, datetime) else date_obj.strftime('%d/%m/%Y')
+            elif date_format == 'mm/dd/yyyy':
+                return date_obj.strftime('%m/%d/%Y %H:%M') if isinstance(date_obj, datetime) else date_obj.strftime('%m/%d/%Y')
+            else:  # yyyy-mm-dd
+                return date_obj.strftime('%Y-%m-%d %H:%M') if isinstance(date_obj, datetime) else date_obj.strftime('%Y-%m-%d')
+        except Exception as e:
+            logger.error(f"Fout bij formatteren datum: {e}")
+            logger.error(traceback.format_exc())
+            # Fallback formaat
+            return str(date_obj)
 
     def updateStyle(self):
-        self.setStyleSheet(f"""
-            QWidget {{
-                background-color: {self.config['widget_bg_color']};
-                color: {self.config['widget_text_color']};
-            }}
-            QCalendarWidget {{
-                background-color: {self.config['calendar_bg_color']};
-                color: {self.config['calendar_text_color']};
-            }}
-            QCalendarWidget QToolButton {{
-                color: {self.config['calendar_text_color']};
-            }}
-            QCalendarWidget QMenu {{
-                color: {self.config['calendar_text_color']};
-            }}
-            QCalendarWidget QTableView {{
-                selection-background-color: {self.config['selected_date_color']};
-            }}
-            QListWidget {{
-                background-color: {self.config['event_list_bg_color']};
-                color: {self.config['event_list_text_color']};
-            }}
-        """)
+        """Pas styling van de widget aan op basis van de configuratie."""
+        try:
+            self.setStyleSheet(f"""
+                QWidget {{
+                    background-color: {self.config['widget_bg_color']};
+                    color: {self.config['widget_text_color']};
+                }}
+                QCalendarWidget {{
+                    background-color: {self.config['calendar_bg_color']};
+                    color: {self.config['calendar_text_color']};
+                }}
+                QCalendarWidget QToolButton {{
+                    color: {self.config['calendar_text_color']};
+                }}
+                QCalendarWidget QMenu {{
+                    color: {self.config['calendar_text_color']};
+                }}
+                QCalendarWidget QTableView {{
+                    selection-background-color: {self.config['selected_date_color']};
+                }}
+                QListWidget {{
+                    background-color: {self.config['event_list_bg_color']};
+                    color: {self.config['event_list_text_color']};
+                }}
+            """)
+            logger.info("Widget stijl bijgewerkt")
+        except Exception as e:
+            logger.error(f"Fout bij bijwerken stijl: {e}")
+            logger.error(traceback.format_exc())
 
     def updateConfig(self, new_config):
-        self.config.update(new_config)
-        self.updateStyle()
-        self.save_config()
-        self.updateCalendar()
-        self.setupUpdateTimer()
+        """Werk de configuratie bij en pas de widget aan."""
+        try:
+            # Update de huidige configuratie
+            self.config.update(new_config)
+            
+            # Pas de stijl aan
+            self.updateStyle()
+            
+            # Sla configuratie op
+            self.save_config()
+            
+            # Werk kalender bij
+            self.updateCalendar()
+            
+            # Pas de update timer aan indien nodig
+            if 'update_interval' in new_config:
+                self.timer.start(self.config['update_interval'])
+                
+            logger.info("Configuratie bijgewerkt")
+        except Exception as e:
+            logger.error(f"Fout bij bijwerken configuratie: {e}")
+            logger.error(traceback.format_exc())
 
     def openSettings(self):
-        dialog = GoogleCalendarSettingsDialog(self)
-        if dialog.exec_():
-            new_config = dialog.get_config()
-            self.updateConfig(new_config)
+        """Open het instellingenvenster."""
+        try:
+            dialog = GoogleCalendarSettingsDialog(self)
+            if dialog.exec_():
+                new_config = dialog.get_config()
+                self.updateConfig(new_config)
+                logger.info("Instellingen opgeslagen")
+        except Exception as e:
+            logger.error(f"Fout bij openen instellingen: {e}")
+            logger.error(traceback.format_exc())
+            QMessageBox.warning(self, "Fout", f"Er is een fout opgetreden bij het openen van de instellingen: {e}")
 
     def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.config['size'] = (self.width(), self.height())
-        self.save_config()
+        """Verwerk resize event en sla nieuwe afmetingen op."""
+        try:
+            super().resizeEvent(event)
+            self.config['size'] = (self.width(), self.height())
+            self.save_config()
+        except Exception as e:
+            logger.error(f"Fout in resizeEvent: {e}")
 
     def moveEvent(self, event):
-        super().moveEvent(event)
-        self.config['position'] = (self.x(), self.y())
-        self.save_config()
+        """Verwerk move event en sla nieuwe positie op."""
+        try:
+            super().moveEvent(event)
+            self.config['position'] = (self.x(), self.y())
+            self.save_config()
+        except Exception as e:
+            logger.error(f"Fout in moveEvent: {e}")
 
-class GoogleCalendarSettingsDialog(WidgetSettingsDialog):
+class ColorButton(QPushButton):
+    """Knop voor kleurkeuze met veilige fooutafhandeling."""
+    def __init__(self, color="#FFFFFF", parent=None):
+        super().__init__(parent)
+        self.setColor(color)
+        self.clicked.connect(self.chooseColor)
+        
+    def setColor(self, color):
+        """Stel de kleur van de knop in."""
+        try:
+            self.color = color
+            self.setStyleSheet(f"background-color: {color}; min-width: 60px; min-height: 20px;")
+        except Exception as e:
+            logger.error(f"Fout bij instellen kleur op knop: {e}")
+            self.color = "#FFFFFF"  # Fallback naar wit
+            
+    def chooseColor(self):
+        """Open de kleurkiezer en verwerk de keuze."""
+        try:
+            color = QColorDialog.getColor(QColor(self.color))
+            if color.isValid():
+                self.setColor(color.name())
+        except Exception as e:
+            logger.error(f"Fout bij kiezen kleur: {e}")
+            QMessageBox.warning(self, "Fout", f"Er is een fout opgetreden bij het kiezen van een kleur: {e}")
+            
+    def getColor(self):
+        """Haal de huidige kleur op."""
+        return self.color
+
+class GoogleCalendarSettingsDialog(QDialog):
+    """Verbeterde instellingendialoog voor Google Calendar Widget."""
     def __init__(self, widget, parent=None):
-        super().__init__(widget, parent)
+        super().__init__(parent)
         self.widget = widget
-        self.init_ui()
-
-    def init_ui(self):
-        layout = self.layout()
-
-        self.urlInputs = []
-        for url in self.widget.config['ical_urls']:
-            self.add_url_input(url, layout)
-
-        add_calendar_button = QPushButton("Add Calendar")
-        add_calendar_button.clicked.connect(lambda: self.add_url_input('', layout))
-        layout.addWidget(add_calendar_button)
-
-        self.update_interval_input = QSpinBox()
-        self.update_interval_input.setRange(1, 24)
-        self.update_interval_input.setValue(self.widget.config['update_interval'] // 3600000)
-        layout.addWidget(QLabel("Update Interval (hours):"))
-        layout.addWidget(self.update_interval_input)
-
-        self.num_events_input = QSpinBox()
-        self.num_events_input.setRange(1, 20)
-        self.num_events_input.setValue(self.widget.config['num_events'])
-        layout.addWidget(QLabel("Number of events to display:"))
-        layout.addWidget(self.num_events_input)
-
-        self.date_format_combo = QComboBox()
-        self.date_format_combo.addItems(['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd'])
-        self.date_format_combo.setCurrentText(self.widget.config['date_format'])
-        layout.addWidget(QLabel("Date format:"))
-        layout.addWidget(self.date_format_combo)
-
-        self.init_color_buttons(layout)
-
-    def add_url_input(self, url, layout):
-        url_input = QLineEdit(url)
-        url_input.setEchoMode(QLineEdit.Password)
-        color_button = QPushButton()
-        color = self.widget.config['colors'].get(url, '#FFB347')
-        color_button.setStyleSheet(f"background-color: {color};")
-        color_button.clicked.connect(lambda _, u=url_input, b=color_button: self.choose_color(u, b))
+        self.temp_config = dict(widget.config)  # Maak een kopie van de config
+        self.url_inputs = []  # Lijst van URL inputs
         
-        remove_button = QPushButton("Remove")
-        remove_button.clicked.connect(lambda _, u=url_input: self.remove_url_input(u))
+        self.setWindowTitle("Google Calendar Instellingen")
+        self.setMinimumWidth(500)
+        self.initUI()
         
-        hbox = QHBoxLayout()
-        hbox.addWidget(url_input)
-        hbox.addWidget(color_button)
-        hbox.addWidget(remove_button)
-        
-        self.urlInputs.append((url_input, color_button, remove_button))
-        layout.addWidget(QLabel(f"Calendar URL {len(self.urlInputs)}:"))
-        layout.addLayout(hbox)
-
-    def remove_url_input(self, url_input):
-        for i, (input_, color_button, remove_button) in enumerate(self.urlInputs):
-            if input_ == url_input:
-                self.urlInputs.pop(i)
-                input_.deleteLater()
-                color_button.deleteLater()
-                remove_button.deleteLater()
-                break
-        self.adjustSize()
-
-    def init_color_buttons(self, layout):
-        self.color_buttons = {}
-        color_options = [
-            ('widget_bg_color', 'Widget background'),
-            ('widget_text_color', 'Widget text'),
-            ('calendar_bg_color', 'Calendar background'),
-            ('calendar_text_color', 'Calendar text'),
-            ('selected_date_color', 'Selected date'),
-            ('event_list_bg_color', 'Event list background'),
-            ('event_list_text_color', 'Event list text')
-        ]
-
-        for color_key, color_name in color_options:
-            button = QPushButton()
-            button.setStyleSheet(f"background-color: {self.widget.config[color_key]};")
-            button.clicked.connect(lambda _, k=color_key: self.choose_widget_color(k))
-            layout.addWidget(QLabel(f"{color_name}:"))
-            layout.addWidget(button)
-            self.color_buttons[color_key] = button
-
-    def choose_color(self, url_input, button):
-        color = QColorDialog.getColor()
-        if color.isValid():
-            button.setStyleSheet(f"background-color: {color.name()};")
-            self.widget.config['colors'][url_input.text()] = color.name()
-
-    def choose_widget_color(self, color_key):
-        color = QColorDialog.getColor(QColor(self.widget.config[color_key]))
-        if color.isValid():
-            self.color_buttons[color_key].setStyleSheet(f"background-color: {color.name()};")
-            self.widget.config[color_key] = color.name()
-
+    def initUI(self):
+        """Initialiseer de UI van de instellingendialoog."""
+        try:
+            main_layout = QVBoxLayout(self)
+            
+            # URLs sectie
+            url_group = QGroupBox("Kalender URLs")
+            url_layout = QVBoxLayout()
+            
+            # Voeg bestaande URLs toe
+            for url in self.temp_config['ical_urls']:
+                self.addUrlInput(url_layout, url)
+            
+            # Knop om URL toe te voegen
+            add_button = QPushButton("Voeg Kalender URL toe")
+            add_button.clicked.connect(lambda: self.addUrlInput(url_layout))
+            url_layout.addWidget(add_button)
+            
+            url_group.setLayout(url_layout)
+            main_layout.addWidget(url_group)
+            
+            # Algemene instellingen sectie
+            general_group = QGroupBox("Algemene Instellingen")
+            general_layout = QFormLayout()
+            
+            # Update interval
+            self.update_interval = QSpinBox()
+            self.update_interval.setRange(1, 60)
+            self.update_interval.setValue(self.temp_config['update_interval'] // 60000)  # Omzetten naar minuten
+            self.update_interval.setSuffix(" minuten")
+            general_layout.addRow("Update interval:", self.update_interval)
+            
+            # Aantal events
+            self.num_events = QSpinBox()
+            self.num_events.setRange(1, 20)
+            self.num_events.setValue(self.temp_config['num_events'])
+            general_layout.addRow("Aantal events om te tonen:", self.num_events)
+            
+            # Datumformaat
+            self.date_format = QComboBox()
+            self.date_format.addItems(['dd/mm/yyyy', 'mm/dd/yyyy', 'yyyy-mm-dd'])
+            self.date_format.setCurrentText(self.temp_config['date_format'])
+            general_layout.addRow("Datumformaat:", self.date_format)
+            
+            general_group.setLayout(general_layout)
+            main_layout.addWidget(general_group)
+            
+            # Kleurinstellingen sectie
+            colors_group = QGroupBox("Kleuren")
+            colors_layout = QFormLayout()
+            
+            # Maak kleurknoppen voor alle kleuren in de config
+            self.color_buttons = {}
+            color_keys = [
+                ('widget_bg_color', 'Widget achtergrond'),
+                ('widget_text_color', 'Widget tekst'),
+                ('calendar_bg_color', 'Kalender achtergrond'),
+                ('calendar_text_color', 'Kalender tekst'),
+                ('selected_date_color', 'Geselecteerde datum'),
+                ('event_list_bg_color', 'Eventlijst achtergrond'),
+                ('event_list_text_color', 'Eventlijst tekst')
+            ]
+            
+            for key, label in color_keys:
+                color_button = ColorButton(self.temp_config[key])
+                colors_layout.addRow(label + ":", color_button)
+                self.color_buttons[key] = color_button
+            
+            colors_group.setLayout(colors_layout)
+            main_layout.addWidget(colors_group)
+            
+            # Knoppen onderaan
+            buttons_layout = QHBoxLayout()
+            save_button = QPushButton("Opslaan")
+            save_button.clicked.connect(self.accept)
+            cancel_button = QPushButton("Annuleren")
+            cancel_button.clicked.connect(self.reject)
+            
+            buttons_layout.addWidget(save_button)
+            buttons_layout.addWidget(cancel_button)
+            main_layout.addLayout(buttons_layout)
+            
+            logger.info("Google Calendar instellingendialoog geïnitialiseerd")
+        except Exception as e:
+            logger.error(f"Fout bij initialiseren instellingendialoog UI: {e}")
+            logger.error(traceback.format_exc())
+            QMessageBox.critical(self, "Fout", f"Er is een fout opgetreden bij het initialiseren van de instellingendialoog: {e}")
+    
+    def addUrlInput(self, layout, url=""):
+        """Voeg een URL input toe aan de layout."""
+        try:
+            # Maak een container voor deze rij
+            url_container = QWidget()
+            url_row = QHBoxLayout(url_container)
+            url_row.setContentsMargins(0, 0, 0, 0)
+            
+            # URL input veld
+            url_input = QLineEdit(url)
+            url_input.setPlaceholderText("Voer iCal URL in (https://...)")
+            url_row.addWidget(url_input)
+            
+            # Kleurknop voor deze URL
+            color = self.temp_config['colors'].get(url, "#FFB347")  # Standaardkleur als de URL nieuw is
+            color_button = ColorButton(color)
+            url_row.addWidget(color_button)
+            
+            # Verwijderknop
+            remove_button = QPushButton("Verwijderen")
+            remove_button.clicked.connect(lambda: self.removeUrlInput(url_container))
+            url_row.addWidget(remove_button)
+            
+            # Voeg container toe aan layout
+            layout.insertWidget(layout.count() - 1, url_container)  # Invoegen boven de "Voeg toe" knop
+            
+            # Bewaar referentie naar deze inputs
+            self.url_inputs.append((url_input, color_button, url_container))
+            
+            logger.info(f"URL input toegevoegd: {url}")
+        except Exception as e:
+            logger.error(f"Fout bij toevoegen URL input: {e}")
+            logger.error(traceback.format_exc())
+    
+    def removeUrlInput(self, container):
+        """Verwijder een URL input uit de layout."""
+        try:
+            # Zoek de juiste input in onze lijst
+            for i, (url_input, color_button, url_container) in enumerate(self.url_inputs):
+                if url_container == container:
+                    # Verwijder uit lijst
+                    self.url_inputs.pop(i)
+                    
+                    # Verwijder widget
+                    container.setParent(None)
+                    container.deleteLater()
+                    
+                    logger.info("URL input verwijderd")
+                    break
+        except Exception as e:
+            logger.error(f"Fout bij verwijderen URL input: {e}")
+            logger.error(traceback.format_exc())
+    
+    def accept(self):
+        """Verwerk instellingen bij accepteren van de dialoog."""
+        try:
+            # Verzamel instellingen
+            new_config = self.get_config()
+            
+            # Sla op in widget
+            super().accept()
+            
+            logger.info("Instellingendialoog geaccepteerd")
+        except Exception as e:
+            logger.error(f"Fout bij accepteren instellingendialoog: {e}")
+            logger.error(traceback.format_exc())
+            QMessageBox.critical(self, "Fout", f"Er is een fout opgetreden bij het opslaan van de instellingen: {e}")
+    
     def get_config(self):
-        config = super().get_config()
-        new_ical_urls = []
-        new_colors = {}
+        """Verzamel alle instellingen uit de dialoog."""
+        try:
+            # Bouw een nieuwe configuratie op
+            new_config = {}
+            
+            # Verzamel URLs en kleuren
+            urls = []
+            colors = {}
+            
+            for url_input, color_button, _ in self.url_inputs:
+                url = url_input.text().strip()
+                if url:  # Alleen valide URLs toevoegen
+                    urls.append(url)
+                    colors[url] = color_button.getColor()
+            
+            new_config['ical_urls'] = urls
+            new_config['colors'] = colors
+            
+            # Verzamel algemene instellingen
+            new_config['update_interval'] = self.update_interval.value() * 60000  # Omzetten naar milliseconden
+            new_config['num_events'] = self.num_events.value()
+            new_config['date_format'] = self.date_format.currentText()
+            
+            # Verzamel kleurinstellingen
+            for key, button in self.color_buttons.items():
+                new_config[key] = button.getColor()
+            
+            # Behoud originele grootte en positie
+            new_config['size'] = self.widget.config['size']
+            new_config['position'] = self.widget.config['position']
+            
+            logger.info("Configuratie verzameld uit instellingendialoog")
+            return new_config
+        except Exception as e:
+            logger.error(f"Fout bij verzamelen configuratie: {e}")
+            logger.error(traceback.format_exc())
+            # Return originele config als er iets fout gaat
+            return dict(self.widget.config)
 
-        for url_input, color_button, _ in self.urlInputs:
-            url = url_input.text()
-            if url:
-                new_ical_urls.append(url)
-                color = color_button.palette().button().color().name()
-                new_colors[url] = color
-
-        config.update({
-            'ical_urls': new_ical_urls,
-            'colors': new_colors,  # We gebruiken de nieuwe colors dictionary
-            'update_interval': self.update_interval_input.value() * 3600000,
-            'num_events': self.num_events_input.value(),
-            'date_format': self.date_format_combo.currentText(),
-        })
-
-        for color_key, button in self.color_buttons.items():
-            config[color_key] = button.palette().button().color().name()
-
-        return config
-
-# Important: The class must be named 'Widget' for the loader to recognize it
+# De Widget-klasse moet deze naam hebben voor de loader
 Widget = GoogleCalendarWidget
 
+# Voor standalone tests
 if __name__ == "__main__":
     import sys
     from PyQt5.QtWidgets import QApplication

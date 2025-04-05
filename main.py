@@ -17,11 +17,33 @@ import sys
 import os
 from pathlib import Path
 
-# Add the path to the widget_venv to sys.path
-base_dir = os.path.dirname(os.path.abspath(__file__))
-venv_path = os.path.join(base_dir, 'widget_venv', 'Lib', 'site-packages')
-sys.path.insert(0, venv_path)
+# Configureer embedded Python als we in een PyInstaller executable zijn
+if getattr(sys, 'frozen', False):
+    # We zijn in een PyInstaller executable
+    base_dir = os.path.dirname(sys.executable)
+    
+    # Voeg de embedded Python toe aan PATH
+    embedded_python_dir = os.path.join(base_dir, "embedded_python")
+    if os.path.exists(embedded_python_dir):
+        os.environ['PATH'] = f"{embedded_python_dir};{os.environ.get('PATH', '')}"
+        # Voeg embedded Python Scripts toe aan PATH
+        scripts_dir = os.path.join(embedded_python_dir, "Scripts")
+        if os.path.exists(scripts_dir):
+            os.environ['PATH'] = f"{scripts_dir};{os.environ.get('PATH', '')}"
 
+# Zorg ervoor dat alle Python modules beschikbaar zijn
+if getattr(sys, 'frozen', False):
+    # We runnen vanuit een PyInstaller executable
+    base_dir = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    # We runnen vanuit een Python script
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Voeg base_dir toe aan sys.path voor imports
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
+
+# Zorgen dat QT plugins correct worden gevonden in frozen executable
 if getattr(sys, 'frozen', False):
     os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = os.path.join(sys._MEIPASS, 'platforms')
 
@@ -43,7 +65,21 @@ def main():
 
     # Setup logger
     logger = setup_logger()
-    logger.info("Application starting")
+    logger.info("Applicatie wordt gestart")
+    logger.info(f"Python versie: {sys.version}")
+    logger.info(f"Systeem: {sys.platform}")
+    
+    if getattr(sys, 'frozen', False):
+        logger.info(f"Applicatie draait als PyInstaller executable")
+        logger.info(f"Executable pad: {sys.executable}")
+        # Log embedded Python pad
+        embedded_python_dir = os.path.join(os.path.dirname(sys.executable), "embedded_python")
+        if os.path.exists(embedded_python_dir):
+            logger.info(f"Embedded Python gevonden op: {embedded_python_dir}")
+        else:
+            logger.warning(f"Geen embedded Python gevonden in: {embedded_python_dir}")
+    else:
+        logger.info(f"Applicatie draait als Python script")
 
     # Load settings (for application-wide settings, not widget-specific)
     settings = Settings()

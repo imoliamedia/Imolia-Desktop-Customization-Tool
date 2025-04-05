@@ -1,5 +1,17 @@
 PyQt5==5.15.6
 psutil==5.8.0
-icalendar==4.0.9
-recurring-ical-events==1.0.2b0
-requests==2.26.0
+icalendar==5.0.7
+recurring-ical-events==2.0.2
+requests==2.22.1
+PyQtWebEngine==5.15.6
+
+a = Analysis(
+    ['main.py'],
+    pathex=[...],
+    binaries=[...],
+    datas=[...],
+    hiddenimports=['icalendar', 'recurring_ical_events', 'requests'],
+    hookspath=[...],
+    runtime_hooks=['runtime_hook.py'],
+    ...
+)

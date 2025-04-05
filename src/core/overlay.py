@@ -13,11 +13,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from PyQt5.QtWidgets import QWidget, QDesktopWidget
+import logging
+import os
+from PyQt5.QtWidgets import QWidget, QDesktopWidget, QMessageBox
 from PyQt5.QtCore import Qt
 from pathlib import Path
 from src.config import APP_NAME, WIDGETS_FOLDER_NAME
 from src.utils.widget_loader import WidgetManager
+
+logger = logging.getLogger('DesktopCustomizer.Overlay')
 
 class Overlay(QWidget):
     def __init__(self, settings):
@@ -49,29 +53,58 @@ class Overlay(QWidget):
         self.load_active_widgets()
 
     def load_active_widgets(self):
+        """Laad actieve widgets."""
         active_widgets = self.settings.get('active_widgets', [])
         available_widgets = self.widget_manager.get_available_widgets()
+        
+        logger.info(f"Actieve widgets laden: {active_widgets}")
+        logger.info(f"Beschikbare widgets: {available_widgets}")
         
         # Verwijder inactieve widgets
         for widget_name in list(self.widgets.keys()):
             if widget_name not in active_widgets:
+                logger.info(f"Widget {widget_name} deactiveren")
                 self.widget_manager.deactivate_widget(widget_name)
                 del self.widgets[widget_name]
         
         # Laad actieve widgets
         for widget_name in active_widgets:
             if widget_name in available_widgets and widget_name not in self.widgets:
-                widget = self.widget_manager.activate_widget(widget_name)
-                if widget:
-                    self.widgets[widget_name] = widget
-                    widget.setParent(self)
-                    widget.show()
-                    
-                    saved_position = widget.config.get('position')
-                    if saved_position:
-                        widget.move(*saved_position)
+                logger.info(f"Widget {widget_name} activeren")
+                try:
+                    widget = self.widget_manager.activate_widget(widget_name)
+                    if widget:
+                        self.widgets[widget_name] = widget
+                        widget.setParent(self)
+                        widget.show()
+                        
+                        # Positie uit configuratie laden of standaard zetten
+                        if hasattr(widget, 'config') and 'position' in widget.config:
+                            saved_position = widget.config['position']
+                            widget.move(*saved_position)
+                        else:
+                            # Standaard positie
+                            widget.move(50 * len(self.widgets), 50 * len(self.widgets))
                     else:
-                        widget.move(50 * len(self.widgets), 50 * len(self.widgets))
+                        logger.error(f"Widget {widget_name} kon niet worden geactiveerd")
+                        self.show_widget_error(widget_name)
+                except Exception as e:
+                    logger.exception(f"Fout bij activeren van widget {widget_name}")
+                    self.show_widget_error(widget_name, str(e))
+
+    def show_widget_error(self, widget_name, error_message=None):
+        """Toon een foutmelding bij het laden van een widget."""
+        error_text = f"De widget '{widget_name}' kon niet worden geladen."
+        if error_message:
+            error_text += f"\n\nFoutmelding: {error_message}"
+        
+        logger.error(error_text)
+        
+        QMessageBox.warning(
+            self, 
+            f"{APP_NAME} - Widget Fout",
+            error_text
+        )
 
     def resizeEvent(self, event):
         desktop = QDesktopWidget()
