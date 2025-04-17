@@ -99,9 +99,32 @@ class GoogleCalendarWidget(DraggableWidget):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
+        self.events_loaded = False  # Bijhouden of events zijn geladen
         self.initUI()
         self.setupUpdateTimer()
-        logger.info("Google Calendar Widget geïnitialiseerd")
+        
+        # Startupbericht toevoegen om beter te kunnen debuggen
+        logger.info("Google Calendar Widget geïnitialiseerd, directe update van agenda gepland...")
+        
+        # De eerste updateCalendar aanroep uitstellen om ervoor te zorgen dat de widget volledig is geïnitialiseerd
+        QTimer.singleShot(500, self.initialCalendarUpdate)
+
+    def initialCalendarUpdate(self):
+        """Initiële kalenderupdate met betere foutafhandeling"""
+        logger.info("Eerste kalenderupdate uitvoeren...")
+        try:
+            # Probeer events op te halen en agendawidget bij te werken
+            success = self.updateCalendar(show_errors=True)
+            if success:
+                logger.info("Eerste kalenderupdate succesvol voltooid.")
+                self.events_loaded = True
+            else:
+                # Als de eerste update mislukt, plan een snelle herpoging (na 10 seconden)
+                logger.warning("Eerste kalenderupdate mislukt, nieuwe poging gepland over 10 seconden.")
+                QTimer.singleShot(10000, lambda: self.updateCalendar(show_errors=True))
+        except Exception as e:
+            logger.error(f"Onverwachte fout bij initiële kalenderupdate: {e}")
+            logger.error(traceback.format_exc())
 
     def load_config(self):
         """Laad configuratie uit bestand of gebruik standaardwaarden."""
@@ -162,6 +185,11 @@ class GoogleCalendarWidget(DraggableWidget):
             self.eventList = QListWidget()
             layout.addWidget(self.eventList)
             
+            # Voeg een handmatige vernieuwknop toe om events direct te kunnen bijwerken
+            refresh_button = QPushButton("Agenda verversen")
+            refresh_button.clicked.connect(lambda: self.updateCalendar(show_errors=True))
+            layout.addWidget(refresh_button)
+            
             self.setLayout(layout)
             
             # Stel grootte en positie in vanuit configuratie
@@ -171,9 +199,8 @@ class GoogleCalendarWidget(DraggableWidget):
             position = self.config.get('position', (100, 100))
             self.move(*position)
             
-            # Pas stijl aan en haal events op
+            # Pas stijl aan
             self.updateStyle()
-            self.updateCalendar()
             
             logger.info("UI geïnitialiseerd")
         except Exception as e:
@@ -185,39 +212,95 @@ class GoogleCalendarWidget(DraggableWidget):
         try:
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.updateCalendar)
-            self.timer.start(self.config['update_interval'])
-            logger.info(f"Update timer ingesteld op {self.config['update_interval']} ms")
+            
+            # Gebruik een kortere interval (5 minuten) in plaats van een uur voor frequentere updates
+            update_interval = min(self.config['update_interval'], 300000)  # Max 5 minuten als standaard
+            
+            self.timer.start(update_interval)
+            logger.info(f"Update timer ingesteld op {update_interval} ms")
         except Exception as e:
             logger.error(f"Fout bij instellen update timer: {e}")
             logger.error(traceback.format_exc())
 
-    def updateCalendar(self):
+    def updateCalendar(self, show_errors=False):
         """Haal events op en werk de kalender bij."""
         try:
-            events = self.fetchEvents()
+            logger.info("Kalender bijwerken gestart...")
+            
+            # Controleer of er URLs zijn geconfigureerd
+            if not self.config['ical_urls']:
+                logger.warning("Geen iCal URLs geconfigureerd, kan agenda niet bijwerken")
+                if show_errors:
+                    QMessageBox.warning(self, "Geen agenda's geconfigureerd",
+                                       "Er zijn geen agenda-URLs geconfigureerd. Ga naar instellingen om agenda's toe te voegen.")
+                return False
+                
+            # Statusmelding in de eventList als er events worden opgehaald
+            if self.eventList.count() == 0:
+                self.eventList.addItem("Agenda gebeurtenissen laden...")
+            
+            # Events ophalen
+            events = self.fetchEvents(show_errors)
+            
+            if events is None:  # Fout bij het ophalen van events
+                if self.eventList.count() == 1 and self.eventList.item(0).text() == "Agenda gebeurtenissen laden...":
+                    self.eventList.clear()
+                    self.eventList.addItem("Fout bij laden van agenda. Probeer opnieuw.")
+                return False
+                
+            # Kalender bijwerken met events
             self.updateCalendarWithEvents(events)
-            self.showUpcomingEvents()
-            logger.info("Kalender bijgewerkt")
+            
+            # Eventuele status berichten verwijderen
+            if self.eventList.count() == 1:
+                item_text = self.eventList.item(0).text()
+                if item_text in ["Agenda gebeurtenissen laden...", "Fout bij laden van agenda. Probeer opnieuw."]:
+                    self.eventList.clear()
+            
+            # Toon aankomende events of events voor geselecteerde datum
+            self.updateEventList()
+            
+            logger.info("Kalender succesvol bijgewerkt")
+            return True
+            
         except Exception as e:
             logger.error(f"Fout bij bijwerken kalender: {e}")
             logger.error(traceback.format_exc())
+            
+            if show_errors:
+                QMessageBox.warning(self, "Fout bij bijwerken agenda",
+                                   f"Er is een fout opgetreden bij het bijwerken van de agenda:\n\n{str(e)}")
+            return False
 
-    def fetchEvents(self):
+    def fetchEvents(self, show_errors=False):
         """Haal gebeurtenissen op van ical URLs."""
         all_events = []
         
         if not self.config['ical_urls']:
             logger.warning("Geen iCal URLs geconfigureerd")
             return all_events
+        
+        error_messages = []
             
         for url in self.config['ical_urls']:
             try:
                 logger.info(f"Events ophalen van: {url}")
-                response = requests.get(url)
+                
+                # Timeout instellen om te voorkomen dat de widget vastloopt bij langzame verbindingen
+                response = requests.get(url, timeout=10)
+                
+                if response.status_code != 200:
+                    error_msg = f"URL {url} retourneerde status code {response.status_code}"
+                    logger.error(error_msg)
+                    error_messages.append(error_msg)
+                    continue
+                    
                 cal_text = response.text
                 
                 if not cal_text.startswith('BEGIN:VCALENDAR'):
-                    logger.error(f"URL is geen geldige iCalendar feed: {url}")
+                    error_msg = f"URL is geen geldige iCalendar feed: {url}"
+                    logger.error(error_msg)
+                    error_messages.append(error_msg)
                     continue
                     
                 cal = icalendar.Calendar.from_ical(cal_text)
@@ -230,9 +313,22 @@ class GoogleCalendarWidget(DraggableWidget):
                     
                 all_events.extend(events)
                 logger.info(f"{len(events)} events opgehaald van {url}")
+            except requests.exceptions.RequestException as e:
+                error_msg = f"Netwerk fout bij ophalen kalender van {url}: {str(e)}"
+                logger.error(error_msg)
+                error_messages.append(error_msg)
             except Exception as e:
-                logger.error(f"Fout bij ophalen kalender van {url}: {e}")
+                error_msg = f"Fout bij ophalen kalender van {url}: {str(e)}"
+                logger.error(error_msg)
                 logger.error(traceback.format_exc())
+                error_messages.append(error_msg)
+        
+        # Toon fouten als er geen events zijn opgehaald maar er wel URLs zijn geconfigureerd
+        if not all_events and error_messages and show_errors:
+            error_text = "\n".join(error_messages)
+            QMessageBox.warning(self, "Fout bij ophalen agenda", 
+                               f"Er zijn fouten opgetreden bij het ophalen van de agenda's:\n\n{error_text}")
+            return None
                 
         return all_events
 
@@ -242,6 +338,10 @@ class GoogleCalendarWidget(DraggableWidget):
             # Reset alle datums naar standaard stijl
             self.calendar.setDateTextFormat(QDate(), QTextCharFormat())
             
+            if not events:
+                logger.info("Geen events om kalender mee bij te werken")
+                return
+                
             for event in events:
                 event_date = event.get('DTSTART').dt
                 if isinstance(event_date, datetime):
@@ -255,6 +355,8 @@ class GoogleCalendarWidget(DraggableWidget):
                 # Stel de opmaak in voor deze datum
                 qdate = QDate(event_date.year, event_date.month, event_date.day)
                 self.calendar.setDateTextFormat(qdate, format)
+            
+            logger.info(f"Kalender bijgewerkt met {len(events)} events")
         except Exception as e:
             logger.error(f"Fout bij bijwerken kalender met events: {e}")
             logger.error(traceback.format_exc())
@@ -272,8 +374,23 @@ class GoogleCalendarWidget(DraggableWidget):
             # Wis de huidige lijst
             self.eventList.clear()
             
+            # Toon een laadmelding
+            loading_item = QListWidgetItem("Events laden...")
+            self.eventList.addItem(loading_item)
+            
+            # Force update van de UI
+            QApplication.processEvents()
+            
             # Haal events op en filter op geselecteerde datum
             events = self.fetchEvents()
+            
+            # Verwijder de laadmelding
+            self.eventList.clear()
+            
+            if not events:
+                self.eventList.addItem("Geen events gevonden.")
+                return
+                
             events_on_date = []
             
             for e in events:
@@ -286,32 +403,54 @@ class GoogleCalendarWidget(DraggableWidget):
             events_on_date.sort(key=lambda x: x.get('DTSTART').dt)
             
             # Voeg events toe aan lijst (beperkt tot ingesteld aantal)
-            for event in events_on_date[:self.config['num_events']]:
-                start_time = event.get('DTSTART').dt
-                if isinstance(start_time, datetime):
-                    start_time_str = start_time.strftime('%H:%M')
-                else:
-                    start_time_str = "Hele dag"
+            if events_on_date:
+                for event in events_on_date[:self.config['num_events']]:
+                    start_time = event.get('DTSTART').dt
+                    if isinstance(start_time, datetime):
+                        start_time_str = start_time.strftime('%H:%M')
+                    else:
+                        start_time_str = "Hele dag"
+                        
+                    summary = event.get('SUMMARY', '')
+                    item = QListWidgetItem(f"{start_time_str} - {summary}")
                     
-                summary = event.get('SUMMARY', '')
-                item = QListWidgetItem(f"{start_time_str} - {summary}")
-                
-                # Stel de achtergrondkleur in o.b.v. de URL
-                color = self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')
-                item.setBackground(QColor(color))
-                
-                self.eventList.addItem(item)
+                    # Stel de achtergrondkleur in o.b.v. de URL
+                    color = self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')
+                    item.setBackground(QColor(color))
+                    
+                    self.eventList.addItem(item)
+            else:
+                self.eventList.addItem("Geen events voor deze datum.")
                 
             logger.info(f"{len(events_on_date)} events getoond voor {selected_date}")
         except Exception as e:
             logger.error(f"Fout bij bijwerken eventlijst: {e}")
             logger.error(traceback.format_exc())
+            self.eventList.clear()
+            self.eventList.addItem("Fout bij laden van events.")
 
     def showUpcomingEvents(self):
         """Toon aankomende gebeurtenissen in de eventlijst."""
         try:
             self.eventList.clear()
+            
+            # Toon een laadmelding
+            loading_item = QListWidgetItem("Aankomende events laden...")
+            self.eventList.addItem(loading_item)
+            
+            # Force update van de UI
+            QApplication.processEvents()
+            
+            # Events ophalen
             events = self.fetchEvents()
+            
+            # Verwijder de laadmelding
+            self.eventList.clear()
+            
+            if not events:
+                self.eventList.addItem("Geen aankomende events gevonden.")
+                return
+                
             now = datetime.now()
             
             # Hulpfunctie voor het omzetten van datum naar datetime
@@ -335,33 +474,38 @@ class GoogleCalendarWidget(DraggableWidget):
             displayed_events = []
             
             # Toon events in de lijst
-            for start_time, event in upcoming_events:
-                if len(displayed_events) >= self.config['num_events']:
-                    break
-                
-                # Maak een unieke sleutel voor dit event
-                event_key = (start_time, event.get('SUMMARY', ''))
-                
-                # Voeg toe als dit event nog niet is weergegeven
-                if event_key not in displayed_events:
-                    displayed_events.append(event_key)
+            if upcoming_events:
+                for start_time, event in upcoming_events:
+                    if len(displayed_events) >= self.config['num_events']:
+                        break
                     
-                    # Formatteer de datum/tijd
-                    start_time_str = self.format_date(start_time)
+                    # Maak een unieke sleutel voor dit event
+                    event_key = (start_time, event.get('SUMMARY', ''))
                     
-                    # Maak een nieuw item
-                    item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
-                    
-                    # Stel de achtergrondkleur in
-                    item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
-                    
-                    # Voeg toe aan lijst
-                    self.eventList.addItem(item)
+                    # Voeg toe als dit event nog niet is weergegeven
+                    if event_key not in displayed_events:
+                        displayed_events.append(event_key)
+                        
+                        # Formatteer de datum/tijd
+                        start_time_str = self.format_date(start_time)
+                        
+                        # Maak een nieuw item
+                        item = QListWidgetItem(f"{start_time_str} - {event.get('SUMMARY', '')}")
+                        
+                        # Stel de achtergrondkleur in
+                        item.setBackground(QColor(self.config['colors'].get(event['CALENDAR_URL'], '#FFB347')))
+                        
+                        # Voeg toe aan lijst
+                        self.eventList.addItem(item)
+            else:
+                self.eventList.addItem("Geen aankomende events gevonden.")
                     
             logger.info(f"{len(displayed_events)} aankomende events getoond")
         except Exception as e:
             logger.error(f"Fout bij tonen aankomende events: {e}")
             logger.error(traceback.format_exc())
+            self.eventList.clear()
+            self.eventList.addItem("Fout bij laden van aankomende events.")
 
     def format_date(self, date_obj):
         """Formatteer datum volgens ingesteld formaat."""
@@ -404,6 +548,16 @@ class GoogleCalendarWidget(DraggableWidget):
                     background-color: {self.config['event_list_bg_color']};
                     color: {self.config['event_list_text_color']};
                 }}
+                QPushButton {{
+                    background-color: {self.config['selected_date_color']};
+                    color: white;
+                    border: none;
+                    padding: 5px;
+                    border-radius: 3px;
+                }}
+                QPushButton:hover {{
+                    background-color: #2980b9;
+                }}
             """)
             logger.info("Widget stijl bijgewerkt")
         except Exception as e:
@@ -422,12 +576,14 @@ class GoogleCalendarWidget(DraggableWidget):
             # Sla configuratie op
             self.save_config()
             
-            # Werk kalender bij
-            self.updateCalendar()
+            # Werk kalender direct bij
+            self.updateCalendar(show_errors=True)
             
             # Pas de update timer aan indien nodig
             if 'update_interval' in new_config:
-                self.timer.start(self.config['update_interval'])
+                # Gebruik een kortere interval (5 minuten) als minimum
+                update_interval = min(self.config['update_interval'], 300000)
+                self.timer.start(update_interval)
                 
             logger.info("Configuratie bijgewerkt")
         except Exception as e:
@@ -515,6 +671,11 @@ class GoogleCalendarSettingsDialog(QDialog):
             # URLs sectie
             url_group = QGroupBox("Kalender URLs")
             url_layout = QVBoxLayout()
+            
+            # Instructie label
+            url_help = QLabel("Voeg iCalendar (*.ics) URL's toe van je Google Calendar of andere agenda's. Je kunt deze URL's vinden in je Google Calendar instellingen onder 'Integratie'.")
+            url_help.setWordWrap(True)
+            url_layout.addWidget(url_help)
             
             # Voeg bestaande URLs toe
             for url in self.temp_config['ical_urls']:
