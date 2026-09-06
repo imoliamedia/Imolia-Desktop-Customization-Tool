@@ -11,6 +11,19 @@ venv/
 *.egg-info/
 dist/
 build/
-*.spec
+
+# "Imolia Desktop Customizer.spec" en runtime_hook.py zijn bewust WEL
+# trackbaar: dat is de vastgelegde, reproduceerbare build-configuratie.
+# Zonder dit stond het echte buildrecept van de uitgeleverde .exe nergens
+# in git. main.spec is een ongebruikt, leeg gegenereerd concept (geen
+# hiddenimports/datas) en exe_launcher.py een niet-gebruikt alternatief
+# startpunt - geen van beide hoort bij de daadwerkelijke build.
+main.spec
 exe_launcher.py
-runtime_hook.py
+
+# Widgets slaan hun runtime-configuratie op als *_config.json naast hun
+# eigen .py-bestand. Dat hoort in de widgetmap van de gebruiker te staan
+# (~/Documents/Imolia Desktop Customizer Widgets), niet in de repo - hier
+# terechtgekomen betekent meestal dat een widget lokaal getest is vanuit
+# deze map.
+widgets/**/*_config.json
