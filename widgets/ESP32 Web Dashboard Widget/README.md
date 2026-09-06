@@ -38,7 +38,29 @@ melding in plaats van te crashen.
 4. Klik op "Bijwerken" om de naam/IP te bevestigen, en sluit de instellingen
    met "Save" om te bewaren.
 
+## Meerdere dashboards tegelijk zichtbaar
+
+De dropdown laat je wisselen tussen systemen, maar toont er telkens maar
+één tegelijk. Wil je bijvoorbeeld je klimaatkast, een 3D-printer en nog
+een 3D-printer **allemaal tegelijk** op je scherm, in aparte vensters?
+
+1. Kopieer `esp32_web_dashboard.py` in je widgetmap
+   (`Documenten\Imolia Desktop Customizer Widgets`) en geef de kopie een
+   andere bestandsnaam (bv. `printer_ad5x.py`).
+2. Herstart de app (of klik op "Vernieuwen" in de widgetlijst) — de kopie
+   verschijnt als een aparte widget met een eigen naam, gebaseerd op de
+   bestandsnaam.
+3. Activeer hem via Instellingen en geef hem zijn eigen systeem (naam +
+   IP-adres) mee.
+
+Elke kopie krijgt automatisch zijn **eigen, onafhankelijke**
+configuratiebestand (zie hieronder) — kopieën beïnvloeden elkaar niet.
+
 ## Configuratiebestand
 
-De instellingen worden opgeslagen in `esp32_web_dashboard_widget_config.json`
-in dezelfde map als het widget-bestand.
+De instellingen worden opgeslagen naast het widget-bestand, in een
+bestand genaamd `<bestandsnaam-zonder-.py>_config.json`. Voor
+`esp32_web_dashboard.py` is dat dus `esp32_web_dashboard_config.json`;
+voor een kopie `printer_ad5x.py` wordt dat `printer_ad5x_config.json`.
+Zo krijgt elke kopie automatisch zijn eigen configuratie, ook al staan ze
+allemaal in dezelfde map.

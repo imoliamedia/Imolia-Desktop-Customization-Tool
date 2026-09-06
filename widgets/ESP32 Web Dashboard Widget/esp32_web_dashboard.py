@@ -36,7 +36,13 @@ except ImportError as e:
 
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
-CONFIG_FILENAME = 'esp32_web_dashboard_widget_config.json'
+# Gebaseerd op de eigen bestandsnaam (niet een vaste string!) zodat je dit
+# widget-bestand kan kopiëren onder een andere naam om meerdere,
+# onafhankelijke instanties tegelijk te tonen (bv. één per apparaat). Met
+# een vaste bestandsnaam zouden alle kopieën hetzelfde configuratiebestand
+# delen en elkaars instellingen (systemen, positie, grootte) overschrijven
+# zodra er iets bewaard wordt - zichtbaar pas bij de volgende herstart.
+CONFIG_FILENAME = os.path.splitext(os.path.basename(__file__))[0] + '_config.json'
 
 
 class ESP32WebDashboardWidget(DraggableWidget):
@@ -47,7 +53,24 @@ class ESP32WebDashboardWidget(DraggableWidget):
         self.initUI()
 
     def load_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILENAME)
+        config_dir = os.path.dirname(__file__)
+        config_path = os.path.join(config_dir, CONFIG_FILENAME)
+
+        # Eenmalige migratie: dit bestand heette voorheen altijd
+        # 'esp32_web_dashboard_widget_config.json', ongeacht de eigen
+        # bestandsnaam. Bestaande installaties (dit widget-bestand nog
+        # niet gekopieerd/hernoemd) zouden hun geconfigureerde systemen
+        # anders kwijtraken zodra ze naar het nieuwe, per-bestand
+        # configuratiebestand overschakelen.
+        legacy_config_path = os.path.join(config_dir, 'esp32_web_dashboard_widget_config.json')
+        if not os.path.exists(config_path) and os.path.exists(legacy_config_path):
+            try:
+                import shutil
+                shutil.copyfile(legacy_config_path, config_path)
+                logger.info(f"Configuratie gemigreerd van {legacy_config_path} naar {config_path}")
+            except OSError as e:
+                logger.warning(f"Kon oude configuratie niet migreren: {e}")
+
         default_config = {
             'systems': [],
             'current_system': 0,
