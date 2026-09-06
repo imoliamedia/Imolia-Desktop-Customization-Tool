@@ -3,17 +3,26 @@ System Monitor Widget for Imolia Desktop Customizer
 
 Dependencies:
 PyQt5==5.15.6
-psutil==5.8.0
+psutil==7.2.2
 
 """
 
 import json
+import logging
 import os
+import sys
 import psutil
 from PyQt5.QtWidgets import QVBoxLayout, QLabel, QSizeGrip, QSpinBox, QColorDialog, QPushButton, QHBoxLayout
 from PyQt5.QtCore import QTimer, Qt, QSize, QElapsedTimer
 from PyQt5.QtGui import QFont, QResizeEvent, QColor
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
+
+logger = logging.getLogger('DesktopCustomizer.SystemMonitorWidget')
+
+# os.path.abspath(os.sep) geeft de systeemschijf op elk platform: 'C:\\' op
+# Windows, '/' op Linux/Mac. Het hardcoded pad '/' dat hier eerder stond
+# bestaat niet op Windows en liet psutil.disk_usage() elke seconde crashen.
+SYSTEM_DRIVE_PATH = os.path.abspath(os.sep)
 
 class SystemMonitorWidget(DraggableWidget):
     def __init__(self):
@@ -73,17 +82,24 @@ class SystemMonitorWidget(DraggableWidget):
         self.timer.start(update_interval)
 
     def update_stats(self):
-        cpu_percent = psutil.cpu_percent()
-        memory_percent = psutil.virtual_memory().percent
-        disk_percent = psutil.disk_usage('/').percent
-        
-        net_io = psutil.net_io_counters()
-        net_speed = self.calculate_network_speed(net_io)
+        # Dit draait elke seconde vanuit een QTimer, buiten het bereik van
+        # de widget-activatie-foutafhandeling om. Zonder deze try/except
+        # zou een fout hier (bv. een tijdelijk niet-beschikbare schijf)
+        # elke seconde opnieuw een onverwachte-fout-melding triggeren.
+        try:
+            cpu_percent = psutil.cpu_percent()
+            memory_percent = psutil.virtual_memory().percent
+            disk_percent = psutil.disk_usage(SYSTEM_DRIVE_PATH).percent
 
-        self.cpu_label.setText(f"CPU: {cpu_percent:.1f}%")
-        self.memory_label.setText(f"Memory: {memory_percent:.1f}%")
-        self.disk_label.setText(f"Disk: {disk_percent:.1f}%")
-        self.network_label.setText(f"Network: {net_speed:.2f} Mbps")
+            net_io = psutil.net_io_counters()
+            net_speed = self.calculate_network_speed(net_io)
+
+            self.cpu_label.setText(f"CPU: {cpu_percent:.1f}%")
+            self.memory_label.setText(f"Memory: {memory_percent:.1f}%")
+            self.disk_label.setText(f"Disk: {disk_percent:.1f}%")
+            self.network_label.setText(f"Network: {net_speed:.2f} Mbps")
+        except Exception as e:
+            logger.error(f"Fout bij bijwerken van systeemstatistieken: {e}")
 
     def calculate_network_speed(self, net_io):
         time_elapsed = self.last_net_io_time.elapsed() / 1000.0  # Convert to seconds
