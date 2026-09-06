@@ -1,5 +1,11 @@
 """
-ESP32 Hydro Widget voor Imolia Desktop Customizer
+ESP32 Web Dashboard Widget voor Imolia Desktop Customizer
+
+Toont de webinterface van een lokaal netwerkapparaat (bv. een ESP32-project
+met een ingebouwde webserver, zoals een klimaatkast, hydrocultuursysteem of
+elk ander DIY-dashboard) rechtstreeks op je desktop. Je kunt meerdere
+systemen configureren (naam + IP-adres of URL) en ertussen wisselen via de
+dropdown bovenaan.
 
 Dependencies:
 PyQt5==5.15.6
@@ -10,30 +16,38 @@ PyQtWebEngine==5.15.6
 import json
 import os
 import logging
-from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, 
+
+logger = logging.getLogger('DesktopCustomizer.ESP32WebDashboard')
+
+from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLineEdit, QLabel, QDialog, QFormLayout, QGroupBox)
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtCore import Qt, QUrl, QEvent, QPointF
+from PyQt5.QtGui import QMouseEvent
 # Probeer QtWebEngine te importeren met foutafhandeling
 try:
     from PyQt5.QtWebEngineWidgets import QWebEngineView
     HAS_WEBENGINE = True
-except ImportError:
+except ImportError as e:
     HAS_WEBENGINE = False
-    logger.error("QtWebEngine niet geïnstalleerd. Installeer PyQtWebEngine==5.15.6 met pip.")
+    # De volledige foutmelding loggen (niet alleen "ontbreekt") is belangrijk:
+    # dit kan ook een DLL-laadfout zijn terwijl PyQtWebEngine wél
+    # geïnstalleerd is (bv. in een gepackagede executable).
+    logger.error(f"PyQt5.QtWebEngineWidgets kon niet geladen worden: {e}")
 
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
-logger = logging.getLogger(__name__)
+CONFIG_FILENAME = 'esp32_web_dashboard_widget_config.json'
 
-class ESP32HydroWidget(DraggableWidget):
+
+class ESP32WebDashboardWidget(DraggableWidget):
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
         self.systems = self.config.get('systems', [])
         self.initUI()
-        
+
     def load_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), 'esp32_hydro_widget_config.json')
+        config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILENAME)
         default_config = {
             'systems': [],
             'current_system': 0,
@@ -50,7 +64,7 @@ class ESP32HydroWidget(DraggableWidget):
         return default_config
 
     def save_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), 'esp32_hydro_widget_config.json')
+        config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILENAME)
         try:
             with open(config_path, 'w') as f:
                 json.dump(self.config, f, indent=4)
@@ -61,28 +75,35 @@ class ESP32HydroWidget(DraggableWidget):
     def initUI(self):
         # Maak layout
         layout = QVBoxLayout()
-        
+
         # Controls layout bovenaan
         controls_layout = QHBoxLayout()
-        
+
         # System selector
         self.system_selector = QComboBox()
         self.update_system_selector()
         self.system_selector.currentIndexChanged.connect(self.change_system)
         controls_layout.addWidget(QLabel("Systeem:"))
         controls_layout.addWidget(self.system_selector)
-        
+
         # Reload button
         reload_button = QPushButton("Herlaad")
         reload_button.clicked.connect(self.reload_page)
         controls_layout.addWidget(reload_button)
-        
+
         layout.addLayout(controls_layout)
-        
-        # WebEngineView voor iframe inhoud (indien beschikbaar)
+
+        # WebEngineView voor de webinterface (indien beschikbaar)
         if HAS_WEBENGINE:
             self.web_view = QWebEngineView()
             self.web_view.setContextMenuPolicy(Qt.NoContextMenu)  # Contextmenu uitschakelen
+            # De webweergave vangt alle muisklikken zelf af (nodig om
+            # knoppen/links op de webpagina te kunnen bedienen), waardoor
+            # je de widget anders alleen via de smalle bovenbalk kon
+            # verslepen. Met dit filter kan dat ook overal op de
+            # webweergave, zolang je Alt ingedrukt houdt.
+            self.web_view.installEventFilter(self)
+            self._alt_dragging_from_webview = False
             layout.addWidget(self.web_view)
         else:
             # Fallback als WebEngine niet beschikbaar is
@@ -90,18 +111,49 @@ class ESP32HydroWidget(DraggableWidget):
             self.web_view.setAlignment(Qt.AlignCenter)
             self.web_view.setStyleSheet("background-color: #f0f0f0; padding: 20px; font-size: 14px;")
             layout.addWidget(self.web_view)
-        
+
         # Laad de huidige pagina
         self.load_current_system()
-        
+
         self.setLayout(layout)
-        
+
         # Stel grootte en positie in vanuit configuratie
         size = self.config.get('size', (800, 600))
         self.resize(*size)
-        
+
         position = self.config.get('position', (100, 100))
         self.move(*position)
+
+    def eventFilter(self, obj, event):
+        """Laat de widget overal verslepen als Alt ingedrukt wordt gehouden.
+
+        De webweergave (QWebEngineView) verwerkt muisklikken zelf, zodat
+        knoppen/links op de ESP32-pagina blijven werken - zonder dit filter
+        zou de widget dus alleen via de smalle bovenbalk te verslepen zijn.
+        Zonder Alt gebeurt hier niets en werkt de webpagina zoals gewoonlijk.
+        """
+        if HAS_WEBENGINE and obj is self.web_view and event.type() in (
+            QEvent.MouseButtonPress, QEvent.MouseMove, QEvent.MouseButtonRelease
+        ):
+            if event.type() == QEvent.MouseButtonPress and event.modifiers() & Qt.AltModifier:
+                self._alt_dragging_from_webview = True
+
+            if self._alt_dragging_from_webview:
+                local_pos = QPointF(self.mapFromGlobal(event.globalPos()))
+                translated = QMouseEvent(
+                    event.type(), local_pos, QPointF(event.globalPos()),
+                    event.button(), event.buttons(), event.modifiers()
+                )
+                if event.type() == QEvent.MouseButtonPress:
+                    self.mousePressEvent(translated)
+                elif event.type() == QEvent.MouseMove:
+                    self.mouseMoveEvent(translated)
+                elif event.type() == QEvent.MouseButtonRelease:
+                    self.mouseReleaseEvent(translated)
+                    self._alt_dragging_from_webview = False
+                return True  # Niet ook nog eens door de webpagina laten verwerken
+
+        return super().eventFilter(obj, event)
 
     def update_system_selector(self):
         """Update de systeem selector met de beschikbare systemen"""
@@ -115,40 +167,40 @@ class ESP32HydroWidget(DraggableWidget):
             self.config['current_system'] = index
             self.save_config()
             self.load_current_system()
-    
+
     def load_current_system(self):
         """Laad het huidige systeem in de webview"""
         if not self.systems:
             # Toon een bericht als er geen systemen zijn geconfigureerd
             if HAS_WEBENGINE:
-                self.web_view.setHtml("<html><body><h2>Geen systemen geconfigureerd</h2><p>Gebruik de instellingen om een systeem toe te voegen.</p></body></html>")
+                self.web_view.setHtml("<html><body><h2>Geen systemen geconfigureerd</h2><p>Gebruik de instellingen om een systeem toe te voegen (naam + lokaal IP-adres).</p></body></html>")
             else:
                 self.web_view.setText("Geen systemen geconfigureerd.\nGebruik de instellingen om een systeem toe te voegen.")
             return
-            
+
         current_index = self.config.get('current_system', 0)
         if current_index >= len(self.systems):
             current_index = 0
             self.config['current_system'] = 0
             self.save_config()
-            
+
         # Zorg ervoor dat de combo box de juiste index heeft
         if self.system_selector.currentIndex() != current_index:
             self.system_selector.setCurrentIndex(current_index)
-            
+
         # Laad het systeem
         system = self.systems[current_index]
         url = system['ip']
         if not url.startswith(('http://', 'https://')):
             url = 'http://' + url
-            
-        logger.info(f"Laden van ESP32 systeem: {system['name']} op URL: {url}")
-        
+
+        logger.info(f"Laden van systeem: {system['name']} op URL: {url}")
+
         if HAS_WEBENGINE:
             self.web_view.load(QUrl(url))
         else:
             self.web_view.setText(f"Zou {system['name']} laden van {url}\nInstaleer PyQtWebEngine==5.15.6 voor weergave.")
-    
+
     def reload_page(self):
         """Herlaad de huidige pagina"""
         if HAS_WEBENGINE:
@@ -180,63 +232,66 @@ class ESP32HydroWidget(DraggableWidget):
 
     def openSettings(self):
         """Open instellingen dialoog"""
-        dialog = ESP32HydroSettingsDialog(self)
+        dialog = ESP32WebDashboardSettingsDialog(self)
         if dialog.exec_():
             new_config = dialog.get_config()
             self.updateConfig(new_config)
 
-class ESP32HydroSettingsDialog(WidgetSettingsDialog):
+
+class ESP32WebDashboardSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
         super().__init__(widget, parent)
-        self.setWindowTitle("ESP32 Hydro Widget Instellingen")
+        self.setWindowTitle("ESP32 Web Dashboard Instellingen")
         self.resize(500, 400)
 
     def add_custom_section(self, layout):
         # Maak een gekloonde kopie van de systemen voor bewerking
         self.systems = list(self.widget.systems)
-        
+
         # Systemen groep
-        systems_group = QGroupBox("Hydrosystemen")
+        systems_group = QGroupBox("Systemen")
         systems_layout = QVBoxLayout()
-        
+
+        # Formulier voor systeem details - deze velden moeten al bestaan
+        # vóórdat update_systems_list() hieronder wordt aangeroepen, want
+        # die schakelt ze in/uit op basis van of er systemen zijn.
+        system_form = QFormLayout()
+
+        self.system_name = QLineEdit()
+        system_form.addRow("Systeemnaam:", self.system_name)
+
+        self.system_ip = QLineEdit()
+        self.system_ip.setPlaceholderText("bv. 192.168.1.50 of 192.168.1.50:80")
+        system_form.addRow("IP-adres:", self.system_ip)
+
         # Lijst van systemen
         self.systems_list = QComboBox()
         self.update_systems_list()
         systems_layout.addWidget(self.systems_list)
-        
-        # Formulier voor systeem details
-        system_form = QFormLayout()
-        
-        self.system_name = QLineEdit()
-        system_form.addRow("Systeemnaam:", self.system_name)
-        
-        self.system_ip = QLineEdit()
-        system_form.addRow("IP-adres:", self.system_ip)
-        
         systems_layout.addLayout(system_form)
-        
+
         # Knoppen voor beheer
         buttons_layout = QHBoxLayout()
-        
+
         add_button = QPushButton("Nieuw systeem")
         add_button.clicked.connect(self.add_system)
         buttons_layout.addWidget(add_button)
-        
+
         update_button = QPushButton("Bijwerken")
         update_button.clicked.connect(self.update_system)
         buttons_layout.addWidget(update_button)
-        
+
         delete_button = QPushButton("Verwijderen")
         delete_button.clicked.connect(self.delete_system)
         buttons_layout.addWidget(delete_button)
-        
+
         systems_layout.addLayout(buttons_layout)
         systems_group.setLayout(systems_layout)
         layout.addWidget(systems_group)
-        
+
         # Verbind signalen
         self.systems_list.currentIndexChanged.connect(self.load_system_details)
-        
+
         # Laad eerste systeem indien beschikbaar
         if self.systems:
             self.load_system_details(0)
@@ -246,7 +301,7 @@ class ESP32HydroSettingsDialog(WidgetSettingsDialog):
         self.systems_list.clear()
         for system in self.systems:
             self.systems_list.addItem(system['name'])
-        
+
         # Voeg een lege optie toe als er geen systemen zijn
         if not self.systems:
             self.systems_list.addItem("Geen systemen")
@@ -302,13 +357,14 @@ class ESP32HydroSettingsDialog(WidgetSettingsDialog):
             'current_system': min(self.widget.config.get('current_system', 0), max(0, len(self.systems) - 1))
         }
 
+
 # De Widget-klasse moet deze naam hebben voor de loader
-Widget = ESP32HydroWidget
+Widget = ESP32WebDashboardWidget
 
 if __name__ == "__main__":
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    widget = ESP32HydroWidget()
+    widget = ESP32WebDashboardWidget()
     widget.show()
     sys.exit(app.exec_())
