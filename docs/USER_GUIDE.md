@@ -10,13 +10,21 @@
 
 ## 1. Installation
 
+**Option A — download a release (recommended for most users):**
+
+1. Go to the [Releases page](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/releases) and download the latest `.zip`.
+2. Unzip it, keeping all files together.
+3. Run `Imolia Desktop Customizer.exe`.
+
+**Option B — run from source:**
+
 1. Clone the repository:
    ```
-   git clone https://github.com/ImoliMedia/desktop-customization-tool.git
+   git clone https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool.git
    ```
 2. Navigate to the project directory:
    ```
-   cd desktop-customization-tool
+   cd Imolia-Desktop-Customization-Tool
    ```
 3. Install the required dependencies:
    ```
@@ -73,7 +81,7 @@ The overlay is the transparent layer on your desktop where widgets are displayed
    ```
    C:\Users\[YourUsername]\Documents\Imolia Desktop Customizer Widgets\
    ```
-4. Restart the Imolia Desktop Customizer application.
+4. Click "Vernieuwen"/"Refresh" in the Widgets tab, or restart the application.
 5. Your new widget should now appear in the list of available widgets.
 
 ## 5. Adjusting Settings

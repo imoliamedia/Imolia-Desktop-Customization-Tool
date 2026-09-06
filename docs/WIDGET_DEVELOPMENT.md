@@ -23,10 +23,10 @@
 This guide provides comprehensive instructions for developing widgets for the Imolia Desktop Customization Tool. By following this guide, you'll be able to create custom widgets that seamlessly integrate with the application.
 
 ## Setting Up Your Development Environment
-1. Ensure you have Python 3.7 or higher installed.
+1. Ensure you have Python 3.9 or higher installed.
 2. Clone the Imolia Desktop Customization Tool repository:
    ```
-   git clone https://github.com/ImoliMedia/desktop-customization-tool.git
+   git clone https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool.git
    ```
 3. Create and activate a virtual environment:
    ```
@@ -51,7 +51,11 @@ Key concepts:
 - Widgets should have their own settings dialog
 
 ## Creating Your First Widget
-Here's a template for creating a basic widget:
+Here's a template for creating a basic widget, following the same
+`DraggableWidget` + `WidgetSettingsDialog` pattern used by every bundled
+widget (clock, calculator, system monitor, ...) - not the standalone
+`BaseWidgetSettingsDialog` utility class, which exists in the codebase but
+isn't actually used by any real widget:
 
 ```python
 """
@@ -63,11 +67,9 @@ PyQt5==5.15.6
 
 import json
 import os
-from PyQt5.QtWidgets import QVBoxLayout, QLabel, QWidget
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QVBoxLayout, QLabel
 from PyQt5.QtGui import QFont
-from src.utils.draggable_widget import DraggableWidget
-from src.utils.base_widget_settings_dialog import BaseWidgetSettingsDialog
+from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
 class MyCustomWidget(DraggableWidget):
     def __init__(self):
@@ -98,11 +100,11 @@ class MyCustomWidget(DraggableWidget):
         self.label = QLabel("Hello, I'm a custom widget!")
         layout.addWidget(self.label)
         self.setLayout(layout)
-        
+
         self.setMinimumSize(100, 50)
         size = self.config.get('size', (200, 100))
         self.resize(*size)
-        
+
         position = self.config.get('position', (100, 100))
         self.move(*position)
 
@@ -146,22 +148,21 @@ class MyCustomWidget(DraggableWidget):
             new_config = dialog.get_config()
             self.updateConfig(new_config)
 
-class MyCustomWidgetSettingsDialog(BaseWidgetSettingsDialog):
+class MyCustomWidgetSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
-        super().__init__(parent, widget_name="My Custom Widget")
-        self.widget = widget
+        super().__init__(widget, parent)
 
-    def create_settings_tab(self):
-        tab = super().create_settings_tab()
-        layout = tab.layout()
-        
-        # Add your widget-specific settings here
-        
-        return tab
+    def add_custom_section(self, layout):
+        # Add your widget-specific settings here. If you want a color
+        # picker, see "Creating a Widget Settings Dialog" below - the
+        # base class's own get_config() expects a self.color_button to
+        # exist, so skipping it will crash the dialog on Save.
+        pass
 
-    def save_settings(self):
-        # Save your widget-specific settings here
-        super().save_settings()
+    def get_config(self):
+        config = super().get_config()
+        # Add your widget-specific fields to the returned dict here.
+        return config
 
 # Important: The class must be named 'Widget' for the loader to recognize it
 Widget = MyCustomWidget
@@ -198,34 +199,79 @@ If your widget needs to update regularly (e.g., a clock or system monitor):
    ```
 
 ## Creating a Widget Settings Dialog
-Use the `BaseWidgetSettingsDialog` to create a consistent settings experience:
+Use `WidgetSettingsDialog` (from `src.utils.draggable_widget`) to create a
+consistent settings experience - this is the base class every bundled
+widget's settings dialog actually inherits from. It already builds the
+dialog's "Save"/"Cancel" buttons and a "Behavior" section with an
+update-interval spinner; you only need to override `add_custom_section()`
+(to add your own fields to the UI) and `get_config()` (to include their
+values in the dict that gets saved):
 
 ```python
-from src.utils.base_widget_settings_dialog import BaseWidgetSettingsDialog
+from PyQt5.QtWidgets import QLineEdit, QLabel, QHBoxLayout
+from src.utils.draggable_widget import WidgetSettingsDialog
 
-class MyWidgetSettingsDialog(BaseWidgetSettingsDialog):
+class MyWidgetSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
-        super().__init__(parent, widget_name="My Widget")
-        self.widget = widget
+        super().__init__(widget, parent)
 
-    def create_settings_tab(self):
-        tab = super().create_settings_tab()
-        layout = tab.layout()
-        
-        # Add your widget-specific settings here
-        # Example:
-        layout.addWidget(QLabel("My Setting:"))
+    def add_custom_section(self, layout):
+        setting_layout = QHBoxLayout()
+        setting_layout.addWidget(QLabel("My Setting:"))
         self.my_setting_input = QLineEdit(self.widget.config.get('my_setting', ''))
-        layout.addWidget(self.my_setting_input)
-        
-        return tab
+        setting_layout.addWidget(self.my_setting_input)
+        layout.addLayout(setting_layout)
 
-    def save_settings(self):
-        # Save your widget-specific settings
-        self.widget.config['my_setting'] = self.my_setting_input.text()
-        self.widget.save_config()
-        super().save_settings()
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'my_setting': self.my_setting_input.text(),
+        })
+        return config
 ```
+
+Saving is already wired up for you: the dialog's "Save" button calls
+`get_config()` and passes the result to `widget.updateConfig()`, which
+merges it into `widget.config` and calls `save_config()`. You don't need
+to (and shouldn't) write your own save button or call `save_config()`
+directly from the dialog.
+
+**A gotcha worth knowing:** `WidgetSettingsDialog`'s own `get_config()`
+tries to read a color from `self.color_button` (via its Qt palette). If
+your `add_custom_section()` doesn't create a `self.color_button`, calling
+`super().get_config()` will raise an `AttributeError` the moment the user
+clicks "Save" - a real bug that shipped in the System Monitor widget for a
+while. If you want a color picker, follow `clock_widget.py`'s pattern:
+
+```python
+from PyQt5.QtWidgets import QPushButton, QColorDialog
+from PyQt5.QtGui import QColor
+
+def add_custom_section(self, layout):
+    self.color_button = QPushButton()
+    self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', 'white')};")
+    self.color_button.clicked.connect(self.choose_color)
+    layout.addWidget(self.color_button)
+
+def choose_color(self):
+    # Override this too: setStyleSheet() doesn't update the button's
+    # QPalette, so the base class's palette-based color read would
+    # otherwise always return the wrong (default) color.
+    color = QColorDialog.getColor(QColor(self.widget.config.get('color', 'white')))
+    if color.isValid():
+        self.color_button.setStyleSheet(f"background-color: {color.name()};")
+        self.widget.config['color'] = color.name()
+
+def get_config(self):
+    config = super().get_config()
+    config['color'] = self.widget.config.get('color', 'white')
+    return config
+```
+
+If you don't need a color picker at all, just don't call
+`super().get_config()` - build and return your own dict from
+`get_config()` instead (see the ESP32 Web Dashboard widget for an example
+of a settings dialog with no color/behavior section at all).
 
 ## Advanced Widget Features
 - Implement custom context menus for additional functionality.
@@ -251,24 +297,41 @@ class MyWidgetSettingsDialog(BaseWidgetSettingsDialog):
 4. Restart the Imolia Desktop Customizer application.
 
 ## Handling Dependencies
-- List all dependencies at the top of your widget file in a comment block.
-- Use the virtual environment system implemented in the application to manage widget-specific dependencies.
-- Implement a method to install dependencies if necessary:
+Dependencies are declared declaratively, not installed by your own code -
+there is no `install_dependencies()` method to implement.
+
+List every dependency as one `package==version` line per line, inside a
+`Dependencies:` block in your widget file's module docstring:
 
 ```python
-@staticmethod
-def install_dependencies():
-    try:
-        python_executable = sys.executable
-        pip_command = [python_executable, "-m", "pip", "install", "your-dependency==1.0.0"]
-        result = subprocess.run(pip_command, capture_output=True, text=True, check=True)
-        logger.info(f"Pip install output: {result.stdout}")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error installing dependencies: {e}")
-        logger.error(f"Pip install error output: {e.stderr}")
-        return False
+"""
+MyCustomWidget
+
+Dependencies:
+PyQt5==5.15.6
+requests==2.28.1
+"""
 ```
+
+`WidgetManager` parses this block automatically (see
+`parse_dependencies()` in `src/utils/widget_loader.py`) and installs
+anything missing via `PackageManager` before your widget is activated -
+you don't write or call any install logic yourself. `PyQt5` is assumed
+and doesn't strictly need to be listed, but doing so anyway is the
+convention every bundled widget follows.
+
+A few things worth knowing about how this works in practice:
+- If the exact package (and version) is already importable in the running
+  process - true for anything the app was built with, like `psutil` or
+  `requests` - it's used as-is; nothing gets reinstalled.
+- Otherwise, dependencies are installed into the app's own managed
+  packages folder (`%APPDATA%\Imolia Desktop Customizer\packages`) via
+  pip, using an embedded Python interpreter when running as a packaged
+  `.exe`. This requires internet access and can take a moment the first
+  time a genuinely new dependency is needed.
+- Pin exact versions. An unpinned or since-removed version can make
+  installation fail outright - `requests==2.22.1` in this project's own
+  `requirements.txt` did exactly that after PyPI stopped distributing it.
 
 ## Error Handling and Logging
 - Use Python's `logging` module for comprehensive logging:
@@ -299,21 +362,32 @@ logger.error("Error message")
 - Performance problems: 
   - Profile your code and optimize heavy operations.
   - Consider using background threads for time-consuming tasks.
-- Configuration not saving: 
+- Configuration not saving:
   - Verify the `save_config` method is called appropriately.
   - Check file permissions for the configuration file location.
+  - If you copy a widget file to run multiple instances, make sure each
+    copy's config filename is derived from its own filename (see the
+    ESP32 Web Dashboard widget) - a fixed filename means every copy
+    overwrites the same shared file.
+- Settings dialog crashes on Save:
+  - If your `get_config()` calls `super().get_config()`, make sure
+    `add_custom_section()` created a `self.color_button` - see the
+    gotcha explained under "Creating a Widget Settings Dialog".
 - Dependency issues:
-  - Ensure that the `install_dependencies` method is implemented and called.
-  - Verify that the correct Python interpreter is being used (especially in virtual environments).
-  - Check for any conflicts between widget dependencies and the main application.
+  - Double-check the `Dependencies:` block in your widget's docstring -
+    package names and versions must match exactly what's installable
+    from PyPI (a removed/yanked version will fail every time).
+  - Installing a new dependency in a packaged `.exe` requires internet
+    access; check the app log if it seems to hang or fail silently.
 
 ## Example Widgets
 For more detailed examples, refer to the following widgets in the `widgets` folder:
-- Clock Widget
-- System Monitor Widget
+- Clock Widget - color picker + font/format settings, the reference `choose_color`/`get_config` pattern
+- System Monitor Widget - a periodic `QTimer` update, with its own defensive error handling
 - Calculator Widget
 - Modern Todo Widget
-- Google Calendar Widget
+- Google Calendar Widget - fetching data from a network API
+- ESP32 Web Dashboard Widget - `QWebEngineView`, a fully custom settings dialog with no color/behavior section, and a per-file (not fixed) config filename to safely support running multiple copies at once
 
 These examples demonstrate various techniques and best practices for widget development.
 

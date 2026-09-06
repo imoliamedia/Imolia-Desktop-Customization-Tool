@@ -167,10 +167,39 @@ class SystemMonitorSettingsDialog(WidgetSettingsDialog):
         interval_layout.addWidget(self.interval_spin)
         layout.addLayout(interval_layout)
 
+        # get_config() hieronder roept super().get_config() aan, en die
+        # verwacht een self.color_button (zie WidgetSettingsDialog in
+        # draggable_widget.py). Zonder deze knop crashte "Opslaan" hier
+        # altijd met AttributeError - instellingen werden dus nooit
+        # bewaard. Meteen ook een echte manier om de tekstkleur te
+        # wijzigen, wat voorheen nergens in deze dialoog kon, ook al
+        # ondersteunt de widget het via updateStyle().
+        color_layout = QHBoxLayout()
+        color_layout.addWidget(QLabel("Tekstkleur:"))
+        self.color_button = QPushButton()
+        self.color_button.setStyleSheet(f"background-color: {self.widget.config.get('color', 'white')};")
+        self.color_button.clicked.connect(self.choose_color)
+        color_layout.addWidget(self.color_button)
+        layout.addLayout(color_layout)
+
+    def choose_color(self):
+        # Overgenomen van clock_widget.py: setStyleSheet() werkt de
+        # QPalette van de knop niet bij, terwijl WidgetSettingsDialog's
+        # standaard get_config() de kleur juist via die palette probeert
+        # te lezen - dat geeft dus altijd de verkeerde (standaard) kleur
+        # terug. Door de gekozen kleur hier expliciet in de widget-config
+        # te zetten, en die hieronder in get_config() te gebruiken i.p.v.
+        # de palette, wordt de juiste kleur bewaard.
+        color = QColorDialog.getColor(QColor(self.widget.config.get('color', 'white')))
+        if color.isValid():
+            self.color_button.setStyleSheet(f"background-color: {color.name()};")
+            self.widget.config['color'] = color.name()
+
     def get_config(self):
         config = super().get_config()
         config.update({
-            'update_interval': self.interval_spin.value()
+            'update_interval': self.interval_spin.value(),
+            'color': self.widget.config.get('color', 'white')
         })
         return config
 
