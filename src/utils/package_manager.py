@@ -21,6 +21,7 @@ import subprocess
 import shutil
 import re
 import importlib
+import importlib.metadata
 from pathlib import Path
 from datetime import datetime, timedelta
 from distutils.version import LooseVersion
@@ -30,11 +31,17 @@ logger = logging.getLogger('DesktopCustomizer.PackageManager')
 class PackageManager:
     """
     Beheer van widget packages zonder virtuele omgevingen.
-    
+
     Deze class maakt gebruik van een embedded Python om packages te installeren
     voor widgets, zonder virtuele omgevingen te gebruiken.
     """
-    
+
+    # Package-namen die niet overeenkomen met de module die je importeert.
+    # Sleutels in lowercase, zoals ze in een dependency-specificatie staan.
+    _IMPORT_NAME_OVERRIDES = {
+        'pyqtwebengine': 'PyQt5.QtWebEngineWidgets',
+    }
+
     def __init__(self, base_dir=None):
         """
         Initialiseer de PackageManager.
@@ -64,9 +71,15 @@ class PackageManager:
         # Detecteer embedded Python
         self.python_path = self._find_embedded_python()
         self.pip_path = self._get_pip_path()
-        
-        # Zorg dat pip geïnstalleerd is in de embedded Python
-        self._ensure_pip_installed()
+
+        # Pip pas (lui) installeren op het moment dat er echt een package
+        # via pip geïnstalleerd moet worden - zie _ensure_pip_installed().
+        # Dit gebeurde hier voorheen bij elke app-start onvoorwaardelijk,
+        # wat een paar seconden tot ruim 10 seconden kostte (get-pip.py
+        # downloaden) én internet vereiste, zelfs wanneer geen enkele
+        # widget-dependency ontbreekt (dankzij de in-process-import-check
+        # hierboven is dat voor de meegeleverde widgets altijd het geval).
+        self._pip_ensured = False
         
     def _load_status(self):
         """
@@ -114,15 +127,28 @@ class PackageManager:
             base_dir = os.path.dirname(sys.executable)
             logger.info(f"Running in PyInstaller executable: {base_dir}")
             
-            # Zoek embedded Python in verschillende mogelijke locaties
+            # Zoek embedded Python in verschillende mogelijke locaties.
+            # Sinds PyInstaller 6.x staan gebundelde datas (zoals
+            # embedded_python) in een onedir-build niet meer direct naast
+            # de exe, maar onder een '_internal'-submap (sys._MEIPASS).
+            # Zonder deze locaties mee te checken werd de embedded Python
+            # nooit gevonden in een moderne build, en viel alles terug op
+            # een toevallig aanwezige systeem-Python (of helemaal niets op
+            # een pc zonder Python).
+            meipass = getattr(sys, '_MEIPASS', None)
             possible_paths = [
                 os.path.join(base_dir, "python", "python.exe"),
                 os.path.join(base_dir, "embedded_python", "python.exe"),
                 os.path.join(base_dir, "python3", "python.exe"),
                 os.path.join(base_dir, "embedded_python", "python3.exe"),
-                os.path.join(base_dir, "python", "python3.exe")
+                os.path.join(base_dir, "python", "python3.exe"),
             ]
-            
+            if meipass:
+                possible_paths.extend([
+                    os.path.join(meipass, "embedded_python", "python.exe"),
+                    os.path.join(meipass, "embedded_python", "python3.exe"),
+                ])
+
             for path in possible_paths:
                 logger.info(f"Checking for Python at: {path}")
                 if os.path.exists(path):
@@ -295,7 +321,15 @@ class PackageManager:
         """
         if not self.pip_path:
             return -1, "", "Geen pip executable gevonden."
-            
+
+        # Pas hier (lui, één keer per proces) zorgen dat pip aanwezig is in
+        # de embedded Python - niet al bij het aanmaken van de
+        # PackageManager, want dan zou dit bij elke app-start gebeuren, ook
+        # wanneer er uiteindelijk niets geïnstalleerd hoeft te worden.
+        if not self._pip_ensured:
+            self._pip_ensured = True
+            self._ensure_pip_installed()
+
         # Voeg algemene argumenten toe
         full_args = self.pip_path + args + [
             '--cache-dir', self.pip_cache_dir,
@@ -345,23 +379,107 @@ class PackageManager:
         # Geen operator, alleen een package naam
         return package_spec.strip(), None, None
     
+    def _importable_in_current_process(self, package_name, operator, version):
+        """
+        Controleer of een package al importeerbaar is in het huidige proces.
+
+        Dit is bewust de eerste check, vóór er een apart (embedded) Python-
+        subprocess wordt aangesproken. De widgets die met de app worden
+        meegeleverd hebben hun dependencies al in de PyInstaller-executable
+        ingebakken (hiddenimports) - die zijn dus al beschikbaar in dit
+        proces zelf, ook al heeft de losse embedded Python er niets van
+        geïnstalleerd. Zonder deze check zou de app bij elke eerste start
+        denken dat alle standaard-widget-dependencies ontbreken en voor
+        elke widget een pip-install via de embedded Python proberen te
+        starten - iets dat internet, schrijfrechten en een aanwezige
+        embedded_python-map vereist en op veel pc's faalt of door een
+        antivirus wordt tegengehouden.
+
+        Args:
+            package_name (str): Naam van het package (zonder versie constraint)
+            operator (str or None): Vergelijkingsoperator, bv. '=='
+            version (str or None): Vereiste versie, indien van toepassing
+
+        Returns:
+            bool: True als het package hier al bruikbaar is
+        """
+        module_name = self._IMPORT_NAME_OVERRIDES.get(
+            package_name.lower(), package_name.replace('-', '_')
+        )
+
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            return False
+        except Exception as e:
+            logger.warning(f"Onverwachte fout bij importeren van {module_name}: {e}")
+            return False
+
+        if not operator:
+            return True
+
+        # Probeer de geïnstalleerde versie te bepalen. Lukt dat niet, dan
+        # gaan we ervan uit dat de meegebundelde versie klopt (die ligt
+        # immers vast bij het bouwen van de executable) in plaats van
+        # onnodig een herinstallatie te forceren.
+        installed_version = getattr(module, '__version__', None)
+        if installed_version is None:
+            try:
+                installed_version = importlib.metadata.version(package_name)
+            except Exception:
+                return True
+
+        try:
+            if operator == '==':
+                return installed_version == version
+            elif operator == '>=':
+                return LooseVersion(installed_version) >= LooseVersion(version)
+            elif operator == '<=':
+                return LooseVersion(installed_version) <= LooseVersion(version)
+            elif operator == '>':
+                return LooseVersion(installed_version) > LooseVersion(version)
+            elif operator == '<':
+                return LooseVersion(installed_version) < LooseVersion(version)
+            elif operator == '~=':
+                return LooseVersion(installed_version) >= LooseVersion(version) and \
+                       installed_version.split('.')[0] == version.split('.')[0]
+            elif operator == '!=':
+                return installed_version != version
+        except Exception:
+            # Bij twijfel niet onnodig een werkende, meegebundelde dependency
+            # als "ontbrekend" bestempelen.
+            return True
+
+        return True
+
     def _package_installed(self, package_spec):
         """
         Controleer of een package is geïnstalleerd.
-        
+
         Args:
             package_spec (str): Package specificatie (bijv. 'requests==2.28.1')
-            
+
         Returns:
             bool: True als de package is geïnstalleerd en voldoet aan de versie constraint
         """
+        # Parse package spec
+        package_name, operator, version = self._parse_package_spec(package_spec)
+
+        # Snelle, offline check: is dit hier al gewoon te importeren?
+        if self._importable_in_current_process(package_name, operator, version):
+            logger.info(f"Package {package_name} is al beschikbaar in het huidige proces (geen install nodig)")
+            self.status_data['packages'][package_name] = {
+                'installed': datetime.now().isoformat(),
+                'version': version if operator else None,
+                'source': 'bundled',
+            }
+            self._save_status()
+            return True
+
         if not self.python_path:
             logger.error("Geen Python executable gevonden bij controleren van package")
             return False
-            
-        # Parse package spec
-        package_name, operator, version = self._parse_package_spec(package_spec)
-        
+
         # Controleer eerst in de status data
         if package_name in self.status_data['packages']:
             # Als er geen versie constraint is, is het package geïnstalleerd
