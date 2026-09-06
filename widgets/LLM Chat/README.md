@@ -45,12 +45,16 @@ You can customize the widget's appearance directly from the widget's settings:
 
 ## Supported Models
 
-The widget supports various OpenAI models, including but not limited to:
+The widget supports various OpenAI chat models, including but not limited to:
 - GPT-4
-- GTP-4o
+- GPT-4o
 - GPT-3.5-Turbo
-- Text-Davinci-003
 - And more (check the settings panel for the full list)
+
+Note: this widget uses the legacy `openai==0.27.0` Python library (pre-1.0
+API), so very new models released after that library stopped being
+updated may not be selectable even if OpenAI's API otherwise supports
+them.
 
 ## Troubleshooting
 

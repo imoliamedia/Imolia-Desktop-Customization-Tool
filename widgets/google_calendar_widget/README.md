@@ -16,7 +16,7 @@ This widget displays events from Google Calendar(s) on your desktop.
 
 1. Ensure you have the required dependencies installed:
    ```
-   pip install icalendar recurring_ical_events requests PyQt5
+   pip install icalendar==5.0.7 recurring_ical_events==2.0.2 requests==2.28.1 PyQt5==5.15.6
    ```
 
 2. Place the `google_calendar_widget.py` file in your Imolia Desktop Customizer Widgets folder:
@@ -31,7 +31,7 @@ This widget displays events from Google Calendar(s) on your desktop.
 To configure the widget,  right-click on tray icon and select "Settings". You can adjust the following:
 
 - iCal URLs: Add the iCal URL for each Google Calendar you want to display
-- Update Interval: Set how often the widget should fetch new events (in hours)
+- Update Interval: Set how often the widget should fetch new events (in minutes; anything above 5 minutes is currently capped down to 5 minutes internally)
 - Number of Events: Set the maximum number of events to display
 - Date Format: Choose between dd/mm/yyyy, mm/dd/yyyy, or yyyy-mm-dd
 - Color Settings: Customize the appearance of the widget and calendar
@@ -52,7 +52,7 @@ If you encounter any issues:
 
 ## Support
 
-For support, please open an issue on the [GitHub repository](https://github.com/ImoliMedia/desktop-customization-tool) or contact support@imoliamedia.be.
+For support, please open an issue on the [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues) or contact support@imoliamedia.be.
 
 ## License
 

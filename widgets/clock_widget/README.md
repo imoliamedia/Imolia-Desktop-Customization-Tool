@@ -39,4 +39,4 @@ If the widget is not displaying correctly:
 2. Try restarting the application
 3. Check the application logs for any error messages
 
-For further assistance, please open an issue on our [GitHub repository](https://github.com/ImolaMedia/desktop-customization-tool/issues).
+For further assistance, please open an issue on our [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).

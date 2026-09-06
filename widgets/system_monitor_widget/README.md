@@ -42,7 +42,7 @@ If the widget is not displaying correctly or showing accurate information:
 4. Verify that no other software is conflicting with system monitoring
 5. Check the application logs for any error messages
 
-For further assistance, please open an issue on our [GitHub repository](https://github.com/ImolaMedia/desktop-customization-tool/issues).
+For further assistance, please open an issue on our [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).
 
 ## Note on Resource Usage
 

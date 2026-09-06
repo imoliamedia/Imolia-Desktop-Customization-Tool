@@ -18,7 +18,7 @@ The Calculator Widget is a simple yet functional calculator for the Imolia Deskt
    ```
    pip install PyQt5==5.15.6
    ```
-3. Place the `calculator_widget.py` file in the designated widgets folder of your Imolia Desktop Customization Tool installation.
+3. Place the `calculator.py` file in the designated widgets folder of your Imolia Desktop Customization Tool installation.
 
 ## Usage
 1. Launch the Imolia Desktop Customization Tool.
@@ -35,9 +35,10 @@ You can customize the following aspects of the Calculator Widget:
 3. Button Color
 
 To access the settings:
-1. Right-click on the widget to open the settings dialog.
-2. Use the color pickers to choose your preferred colors.
-3. Click 'OK' to apply the changes.
+1. Open the Imolia Desktop Customizer tray icon → "Settings" → the "Widgets" tab.
+2. Click the settings button next to the Calculator widget.
+3. Use the color pickers to choose your preferred colors.
+4. Click 'Save' to apply the changes.
 
 ## Configuration
 The widget's configuration is automatically saved to `calculator_widget_config.json` in the same directory as the widget file. This ensures that your settings persist between sessions.

@@ -12,7 +12,7 @@ The Quick Notes Widget is a simple yet powerful tool for the Imolia Desktop Cust
 
 ## Installation
 1. Ensure you have the Imolia Desktop Customization Tool installed.
-2. Copy the `quick_notes_widget.py` file to your Imolia Desktop Customizer Widgets folder (usually located at `C:\Users\[YourUsername]\Documents\Imolia Desktop Customizer Widgets\`).
+2. Copy the `Quick Notes.py` file to your Imolia Desktop Customizer Widgets folder (usually located at `C:\Users\[YourUsername]\Documents\Imolia Desktop Customizer Widgets\`).
 3. Restart the Imolia Desktop Customization Tool or refresh the widget list.
 
 ## Usage

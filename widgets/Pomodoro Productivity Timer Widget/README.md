@@ -12,7 +12,7 @@ The Pomodoro Timer Widget is a productivity tool designed for the Imolia Desktop
 
 ## Installation
 1. Ensure you have the Imolia Desktop Customization Tool installed on your system.
-2. Copy the `pomodoro_timer_widget.py` file to your Imolia Desktop Customizer Widgets folder:
+2. Copy the `Pomodoro Productivity Timer.py` file to your Imolia Desktop Customizer Widgets folder:
    ```
    C:\Users\[YourUsername]\Documents\Imolia Desktop Customizer Widgets\
    ```
@@ -43,7 +43,7 @@ This widget requires:
 
 ## Troubleshooting
 If the widget doesn't appear or function correctly:
-1. Ensure that the `pomodoro_timer_widget.py` file is in the correct folder.
+1. Ensure that the `Pomodoro Productivity Timer.py` file is in the correct folder.
 2. Check that you have the required dependencies installed.
 3. Restart the Imolia Desktop Customizer application.
 4. If problems persist, check the application logs for any error messages.
