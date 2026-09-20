@@ -140,6 +140,7 @@ class WidgetInfo:
         self.display_name = display_name or self.generate_display_name()
         self.installed = False
         self.error_message = ""
+        self.mtime = os.path.getmtime(path) if os.path.exists(path) else 0
         
     def generate_display_name(self):
         """Generate a display name from the widget file name."""
@@ -219,9 +220,19 @@ class WidgetManager(QObject):
                         else:
                             # Update if the file has been modified
                             widget_info = self.available_widgets[widget_name]
-                            
-                            # Check if dependencies need to be updated
-                            if os.path.getmtime(file_path) > 0:  # Always update for now
+
+                            # Alleen echt bijwerken (en het widget_updated
+                            # signaal versturen) als het bestand sinds de
+                            # vorige scan is gewijzigd. De oude check
+                            # (getmtime > 0) was altijd waar, waardoor elke
+                            # refresh_widgets() opnieuw widget_updated
+                            # afvuurde voor alle al bekende widgets - en
+                            # WidgetManagerDialog.on_widget_updated() roept
+                            # op zijn beurt weer refresh_widgets() aan, wat
+                            # oneindig bleef doorlussen (RecursionError).
+                            current_mtime = os.path.getmtime(file_path)
+                            if current_mtime > widget_info.mtime:
+                                widget_info.mtime = current_mtime
                                 dependencies = parse_dependencies(file_path)
                                 widget_info.dependencies = dependencies
                                 widget_info.installed = False

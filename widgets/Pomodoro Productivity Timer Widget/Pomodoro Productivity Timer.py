@@ -10,7 +10,8 @@ import os
 import logging
 import sys
 import subprocess
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSpinBox, QGroupBox
+from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSpinBox,
+                             QGroupBox, QColorDialog)
 from PyQt5.QtCore import QTimer, Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
@@ -214,18 +215,36 @@ class PomodoroSettingsDialog(WidgetSettingsDialog):
         self.break_spin.setValue(self.widget.config['break_duration'])
         break_layout.addWidget(self.break_spin)
         custom_layout.addLayout(break_layout)
-        
+
+        # Eigen kleurknop i.p.v. te vertrouwen op WidgetSettingsDialog's
+        # standaard get_config(): die verwacht een self.color_button die
+        # hier nooit werd aangemaakt, waardoor Opslaan altijd crashte met
+        # een AttributeError.
+        color_layout = QHBoxLayout()
+        color_layout.addWidget(QLabel("Color:"))
+        self.color_button = QPushButton()
+        self.color_button.setStyleSheet(
+            f"background-color: {self.widget.config.get('color', '#FF6347')};")
+        self.color_button.clicked.connect(self.choose_color)
+        color_layout.addWidget(self.color_button)
+        custom_layout.addLayout(color_layout)
+
         custom_group.setLayout(custom_layout)
         layout.addWidget(custom_group)
 
+    def choose_color(self):
+        color = QColorDialog.getColor(QColor(self.widget.config.get('color', '#FF6347')))
+        if color.isValid():
+            self.color_button.setStyleSheet(f"background-color: {color.name()};")
+            self.widget.config['color'] = color.name()
+
     def get_config(self):
-        config = super().get_config()
-        config.update({
+        return {
+            'color': self.widget.config.get('color', '#FF6347'),
+            'update_interval': self.update_interval.value(),
             'work_duration': self.work_spin.value(),
             'break_duration': self.break_spin.value()
-        })
-        logger.debug(f"New config from settings dialog: {config}")
-        return config
+        }
 
 # Important: The class must be named 'Widget' for the loader to recognize it
 Widget = PomodoroTimer

@@ -11,7 +11,7 @@ import os
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QDialog, QSpinBox, QColorDialog, 
                              QPushButton, QHBoxLayout, QComboBox, QGroupBox, QFontComboBox)
 from PyQt5.QtCore import QTimer, QTime, Qt, QSize, QPoint
-from PyQt5.QtGui import QFont, QResizeEvent, QColor, QPainter, QPen
+from PyQt5.QtGui import QFont, QFontMetrics, QResizeEvent, QColor, QPainter, QPen
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
 class ClockWidget(DraggableWidget):
@@ -19,6 +19,7 @@ class ClockWidget(DraggableWidget):
         super().__init__()
         self.config = self.load_config()
         self.resize_handle_size = 10
+        self._fitting_to_content = False
         self.initUI()
 
     def load_config(self):
@@ -68,6 +69,7 @@ class ClockWidget(DraggableWidget):
         time_format = self.config.get('time_format', 'hh:mm:ss')
         time_text = current_time.toString(time_format)
         self.time_label.setText(time_text)
+        self.adjustFont()
 
     def updateStyle(self):
         color = self.config.get('color', '#FFFFFF')
@@ -76,7 +78,6 @@ class ClockWidget(DraggableWidget):
 
     def adjustFont(self):
         font = QFont(self.config.get('font_family', 'Arial'))
-        font.setPixelSize(int(self.height() * 0.7))
         font_style = self.config.get('font_style', 'Normal')
         if font_style == 'Bold':
             font.setBold(True)
@@ -85,7 +86,37 @@ class ClockWidget(DraggableWidget):
         elif font_style == 'Bold Italic':
             font.setBold(True)
             font.setItalic(True)
+
+        # Het lettertype schaalt puur op de hoogte die je zelf instelt -
+        # die hoogte wordt door deze methode nooit aangepast, anders
+        # ontstaat een lus (kleinere doos -> kleiner lettertype -> nog
+        # kleinere doos -> ...) waardoor de klok bij het slepen zichzelf
+        # steeds verder verkleint.
+        pixel_size = max(1, int(self.height() * 0.7))
+        font.setPixelSize(pixel_size)
         self.time_label.setFont(font)
+
+        # Alleen de breedte volgt de tekst, zodat er nooit een groot leeg
+        # gebied naast de klok overblijft waar de resize-hendel dan ver
+        # van de zichtbare tijd af zou komen te staan.
+        if not self._fitting_to_content:
+            text = self.time_label.text() or QTime.currentTime().toString(
+                self.config.get('time_format', 'hh:mm:ss'))
+            metrics = QFontMetrics(font)
+            # Bij cursieve stijlen steken de laatste letters door hun
+            # schuine vorm verder naar rechts uit dan de cursor-breedte
+            # (horizontalAdvance) aangeeft - de echte inkt-rechthoek
+            # (boundingRect) meenemen voorkomt dat die dan afgesneden
+            # worden.
+            bounding_rect = metrics.boundingRect(text)
+            text_width = max(metrics.horizontalAdvance(text), bounding_rect.x() + bounding_rect.width())
+            needed_width = max(self.minimumWidth(), text_width + 10)
+            if abs(needed_width - self.width()) > 2:
+                self._fitting_to_content = True
+                try:
+                    self.resize(needed_width, self.height())
+                finally:
+                    self._fitting_to_content = False
 
     def paintEvent(self, event):
         super().paintEvent(event)

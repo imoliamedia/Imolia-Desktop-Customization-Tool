@@ -265,11 +265,15 @@ class ModernToDoWidgetSettingsDialog(WidgetSettingsDialog):
         color = QColorDialog.getColor(QColor(self.widget.config.get(color_name)))
         if color.isValid():
             self.color_buttons[color_name].setStyleSheet(f"background-color: {color.name()};")
+            # setStyleSheet() past de QPalette van de knop niet aan, dus
+            # de gekozen kleur moet apart worden bewaard - anders leest
+            # get_config() hieronder altijd de standaard knopkleur terug.
+            self.widget.config[color_name] = color.name()
 
     def get_config(self):
         return {
-            color_name: button.palette().button().color().name()
-            for color_name, button in self.color_buttons.items()
+            color_name: self.widget.config.get(color_name)
+            for color_name in self.color_buttons
         }
 
 # Important: The class must be named 'Widget' for the loader to recognize it
