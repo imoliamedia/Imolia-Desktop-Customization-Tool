@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- New System Overview widget: a Task Manager-style dashboard showing CPU,
+  memory, GPU, GPU memory, network and disk at once, each with a live
+  graph. Includes GPU temperature and power draw (NVIDIA); CPU temperature
+  is shown when LibreHardwareMonitor/OpenHardwareMonitor is running.
 
 ## [1.1.0] - 2026-09-06
 ### Added

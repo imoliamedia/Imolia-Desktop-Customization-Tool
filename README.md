@@ -36,7 +36,7 @@ Run the application by executing:
 python main.py
 ```
 
-For detailed usage instructions, please refer to our [User Guide](docs/USER_GUIDE.md). See [widgets/README.md](widgets/README.md) for the list of bundled widgets (clock, calculator, system monitor, Google Calendar, LLM chat, and an [ESP32 Web Dashboard](widgets/ESP32%20Web%20Dashboard%20Widget/README.md) that embeds any local device's own web interface — an ESP32 project, a 3D printer's Mainsail/Fluidd page, etc. — directly on the desktop).
+For detailed usage instructions, please refer to our [User Guide](docs/USER_GUIDE.md). See [widgets/README.md](widgets/README.md) for the list of bundled widgets (clock, calculator, system monitor, [system overview with live graphs](widgets/system_overview_widget/README.md), Google Calendar, LLM chat, and an [ESP32 Web Dashboard](widgets/ESP32%20Web%20Dashboard%20Widget/README.md) that embeds any local device's own web interface — an ESP32 project, a 3D printer's Mainsail/Fluidd page, etc. — directly on the desktop).
 
 ## Building the Windows executable
 
