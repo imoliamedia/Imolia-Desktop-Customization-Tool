@@ -2,6 +2,7 @@ import imaplib
 import importlib.util
 import os
 import sys
+import tempfile
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -163,6 +164,47 @@ class TestFetchAccount(unittest.TestCase):
     def test_always_logs_out(self):
         gmail.fetch_account('me@gmail.com', 'pw')
         self.assertEqual(FakeIMAP.instances[0].calls[-1], ('logout',))
+
+
+class TestNotificationSound(unittest.TestCase):
+    def _fake_winsound(self):
+        fake = mock.MagicMock()
+        fake.SND_FILENAME, fake.SND_ASYNC, fake.SND_NODEFAULT, fake.MB_ICONASTERISK = 1, 2, 4, 64
+        return fake
+
+    def test_plays_the_chosen_wav_without_blocking(self):
+        fake = self._fake_winsound()
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, 'ding.wav')
+            open(path, 'wb').close()
+            with mock.patch.dict(sys.modules, {'winsound': fake}):
+                gmail.play_notification_sound(path)
+        fake.PlaySound.assert_called_once_with(path, 1 | 2 | 4)
+        fake.MessageBeep.assert_not_called()
+
+    def test_falls_back_to_the_windows_beep(self):
+        for path in ('', os.path.join(tempfile.gettempdir(), 'bestaat-niet.wav'), 'geluid.mp3'):
+            fake = self._fake_winsound()
+            with mock.patch.dict(sys.modules, {'winsound': fake}):
+                gmail.play_notification_sound(path)
+            fake.MessageBeep.assert_called_once_with(64)
+            fake.PlaySound.assert_not_called()
+
+    def test_lists_only_wav_files_sorted_by_name(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for name in ('b.wav', 'A.WAV', 'notes.txt'):
+                open(os.path.join(folder, name), 'wb').close()
+            with mock.patch.object(gmail, 'WINDOWS_MEDIA_DIR', folder):
+                sounds = gmail.list_windows_sounds()
+        self.assertEqual([name for name, _ in sounds], ['A', 'b'])
+
+    def test_missing_media_folder_gives_empty_list(self):
+        with mock.patch.object(gmail, 'WINDOWS_MEDIA_DIR', os.path.join(tempfile.gettempdir(), 'nope-xyz')):
+            self.assertEqual(gmail.list_windows_sounds(), [])
+
+    def test_defaults_are_not_muted(self):
+        self.assertFalse(gmail.DEFAULT_CONFIG['muted'])
+        self.assertIn('sound_file', gmail.DEFAULT_CONFIG)
 
 
 class TestWithoutImaplib(unittest.TestCase):

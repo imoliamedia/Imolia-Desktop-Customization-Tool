@@ -9,7 +9,8 @@ Shows the unread mail of **several Gmail addresses at once**, and checks for new
 - Click the arrow next to the counter to list the newest unread messages (sender, subject, time)
 - Click a message to open that conversation in Gmail
 - Hover a message to **mark it as read** (✓) or **move it to the trash** (🗑, happens immediately without asking; recoverable from Gmail's Trash for 30 days)
-- New mail: the account row flashes for 15 seconds and a sound plays (can be turned off)
+- New mail: the account row flashes for 15 seconds and a sound plays. Pick the sound yourself: any of the Windows sounds, or your own `.wav` file (settings play a preview when you choose one)
+- **Do not disturb**: the bell button (🔔) in the widget header silences the sound and the flashing. Counters and lists keep updating. The setting is remembered until you click the bell again (🔕 = silent)
 - Accounts that can't be checked show a red `!`; hover it to see why
 - Passwords are stored encrypted with Windows DPAPI — only your Windows user can read them
 
@@ -27,7 +28,7 @@ Repeat for each address. App passwords are not available for accounts with Advan
 
 - Check interval (1–120 minutes)
 - Number of unread messages shown per account
-- Sound on new mail
+- Sound on new mail: on/off and which sound (Windows sounds or your own `.wav`)
 - Background opacity and text color
 
 ## Notes

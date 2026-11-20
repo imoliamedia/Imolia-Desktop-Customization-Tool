@@ -36,8 +36,8 @@ from urllib.parse import quote
 
 from PyQt5.QtCore import Qt, QObject, QPointF, QRectF, QTimer, QUrl, pyqtSignal
 from PyQt5.QtGui import (QColor, QDesktopServices, QFont, QFontMetrics, QPainter)
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QColorDialog, QDialog, QDoubleSpinBox,
-                             QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QColorDialog, QComboBox, QDialog, QDoubleSpinBox,
+                             QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                              QListWidget, QMessageBox, QPushButton, QSpinBox, QVBoxLayout)
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
@@ -66,11 +66,43 @@ NOTE_H = 24
 PAD = 10
 FLASH_SECONDS = 15
 
+WINDOWS_MEDIA_DIR = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'Media')
+
+
+def list_windows_sounds():
+    """[(weergavenaam, pad)] van alle .wav-geluiden die Windows zelf meelevert."""
+    try:
+        names = sorted(f for f in os.listdir(WINDOWS_MEDIA_DIR) if f.lower().endswith('.wav'))
+    except OSError:
+        return []
+    return [(os.path.splitext(f)[0], os.path.join(WINDOWS_MEDIA_DIR, f)) for f in names]
+
+
+def _default_sound():
+    path = os.path.join(WINDOWS_MEDIA_DIR, 'Windows Notify Email.wav')
+    return path if os.path.isfile(path) else ''  # '' = gewone Windows-pieptoon
+
+
+def play_notification_sound(path):
+    """Speel een .wav-bestand af zonder de widget te blokkeren. Zonder (geldig)
+    bestand klinkt de standaard Windows-pieptoon."""
+    try:
+        import winsound
+        if path and path.lower().endswith('.wav') and os.path.isfile(path):
+            winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+        else:
+            winsound.MessageBeep(winsound.MB_ICONASTERISK)
+    except Exception:
+        QApplication.beep()
+
+
 DEFAULT_CONFIG = {
     'accounts': [],              # [{'email': ..., 'password': 'dpapi:...'}]
     'check_interval_minutes': 2,
     'max_messages': 5,           # aantal ongelezen berichten per account in de lijst
     'notify_sound': True,
+    'sound_file': _default_sound(),   # pad naar een .wav; leeg = Windows-pieptoon
+    'muted': False,              # "niet storen": geen geluid en geen knipperen
     'color': '#ffffff',
     'bg_opacity': 100,           # procent
     'size': (360, 340),
@@ -463,7 +495,7 @@ class GmailInboxWidget(DraggableWidget):
             state['unread'] = result['unread']
             state['messages'] = result['messages']
             newest = max((int(m['uid']) for m in result['messages']), default=0)
-            if state['last_uid'] is not None and newest > state['last_uid']:
+            if state['last_uid'] is not None and newest > state['last_uid'] and not self.config.get('muted'):
                 state['new_until'] = time.time() + FLASH_SECONDS
                 self._notify_new_mail()
             if state['last_uid'] is None or newest > state['last_uid']:
@@ -471,12 +503,17 @@ class GmailInboxWidget(DraggableWidget):
         self.update()
 
     def _notify_new_mail(self):
-        if self.config.get('notify_sound', True):
-            try:
-                import winsound
-                winsound.MessageBeep(winsound.MB_ICONASTERISK)
-            except Exception:
-                QApplication.beep()
+        if self.config.get('notify_sound', True) and not self.config.get('muted'):
+            play_notification_sound(self.config.get('sound_file', ''))
+
+    def _toggle_muted(self):
+        self.config['muted'] = not self.config.get('muted', False)
+        self.save_config()
+        if self.config['muted']:
+            for state in self.states.values():
+                state['new_until'] = 0.0  # lopende knipper-effecten meteen stoppen
+        self._show_message('Niet storen staat aan: geen geluid of knipperen' if self.config['muted']
+                           else 'Niet storen staat uit')
 
     # -- acties op berichten ----------------------------------------------
 
@@ -619,21 +656,29 @@ class GmailInboxWidget(DraggableWidget):
             status = f"Bijgewerkt {self._last_check:%H:%M}"
         else:
             status = 'Eerste controle…' if self.config['accounts'] else ''
+        muted = bool(self.config.get('muted'))
+        if muted and not (self._message and now < self._message[1]):
+            status += ' · niet storen' if status else 'Niet storen'
         painter.setFont(self._font(10))
         painter.setPen(self._text_color(140))
-        painter.drawText(QRectF(PAD + 2, 26, self.width() - 100, 14), Qt.AlignLeft | Qt.AlignVCenter, status)
+        painter.drawText(QRectF(PAD + 2, 26, self.width() - 120, 14), Qt.AlignLeft | Qt.AlignVCenter, status)
 
         symbol_font = self._font(16, False, 'Segoe UI Symbol')
-        for index, (glyph, kind, tip) in enumerate((('⚙', 'settings', 'Instellingen / accounts'),
-                                                     ('⟳', 'refresh', 'Nu controleren'))):
+        emoji_font = self._font(14, False, 'Segoe UI Emoji')
+        icons = (('⚙', 'settings', 'Instellingen / accounts', symbol_font),
+                 ('⟳', 'refresh', 'Nu controleren', symbol_font),
+                 ('🔕' if muted else '🔔', 'mute',
+                  'Niet storen staat aan - klik om geluid en knipperen weer aan te zetten' if muted
+                  else 'Niet storen: geen geluid of knipperen bij nieuwe mail', emoji_font))
+        for index, (glyph, kind, tip, font) in enumerate(icons):
             rect = QRectF(self.width() - PAD - 28 * (index + 1), 8, 26, 26)
             hovered = self._hover is not None and rect.contains(self._hover)
-            if hovered:
+            if hovered or (kind == 'mute' and muted):
                 painter.setPen(Qt.NoPen)
-                painter.setBrush(QColor(255, 255, 255, 30))
+                painter.setBrush(QColor(234, 67, 53, 90) if (kind == 'mute' and muted) else QColor(255, 255, 255, 30))
                 painter.drawRoundedRect(rect, 6, 6)
-            painter.setFont(symbol_font)
-            painter.setPen(self._text_color(220 if hovered else 150))
+            painter.setFont(font)
+            painter.setPen(self._text_color(235 if (hovered or (kind == 'mute' and muted)) else 150))
             painter.drawText(rect, Qt.AlignCenter, glyph)
             self._add_hit(rect, kind, None, tip)
 
@@ -803,6 +848,8 @@ class GmailInboxWidget(DraggableWidget):
     def _dispatch(self, kind, payload):
         if kind == 'refresh':
             self.check_all()
+        elif kind == 'mute':
+            self._toggle_muted()
         elif kind == 'settings':
             self.openSettings()
         elif kind == 'open_inbox':
@@ -955,11 +1002,32 @@ class GmailSettingsDialog(WidgetSettingsDialog):
         row.addWidget(self.max_messages)
         behavior_layout.addLayout(row)
 
-        self.sound_check = QCheckBox('Geluid bij nieuwe mail')
-        self.sound_check.setChecked(bool(config.get('notify_sound', True)))
-        behavior_layout.addWidget(self.sound_check)
         behavior_group.setLayout(behavior_layout)
         layout.addWidget(behavior_group)
+
+        sound_group = QGroupBox('Geluid bij nieuwe mail')
+        sound_layout = QVBoxLayout()
+        self.sound_check = QCheckBox('Geluid afspelen')
+        self.sound_check.setChecked(bool(config.get('notify_sound', True)))
+        sound_layout.addWidget(self.sound_check)
+
+        row = QHBoxLayout()
+        self.sound_combo = QComboBox()
+        self.sound_combo.addItem('Windows-pieptoon', '')
+        for name, path in list_windows_sounds():
+            self.sound_combo.addItem(name, path)
+        self._select_sound(config.get('sound_file', ''))
+        self.sound_combo.currentIndexChanged.connect(self.play_sound)  # meteen horen hoe het klinkt
+        row.addWidget(self.sound_combo, 1)
+        browse_button = QPushButton('Eigen bestand…')
+        browse_button.clicked.connect(self.browse_sound)
+        row.addWidget(browse_button)
+        play_button = QPushButton('▶ Afspelen')
+        play_button.clicked.connect(self.play_sound)
+        row.addWidget(play_button)
+        sound_layout.addLayout(row)
+        sound_group.setLayout(sound_layout)
+        layout.addWidget(sound_group)
 
     def add_custom_section(self, layout):
         config = self.widget.config
@@ -990,6 +1058,24 @@ class GmailSettingsDialog(WidgetSettingsDialog):
         if color.isValid():
             self.color_button.setStyleSheet(f"background-color: {color.name()};")
             self.widget.config['color'] = color.name()
+
+    # -- geluid -----------------------------------------------------------
+
+    def _select_sound(self, path):
+        index = self.sound_combo.findData(path)
+        if index < 0:  # een eigen bestand dat niet in de Windows-lijst staat
+            self.sound_combo.addItem(f"{os.path.basename(path)} (eigen bestand)", path)
+            index = self.sound_combo.count() - 1
+        self.sound_combo.setCurrentIndex(index)
+
+    def browse_sound(self):
+        start = os.path.dirname(self.sound_combo.currentData() or '') or WINDOWS_MEDIA_DIR
+        path, _ = QFileDialog.getOpenFileName(self, 'Kies een geluid (.wav)', start, 'Geluiden (*.wav)')
+        if path:
+            self._select_sound(os.path.normpath(path))
+
+    def play_sound(self, *_):
+        play_notification_sound(self.sound_combo.currentData() or '')
 
     # -- accountlijst -----------------------------------------------------
 
@@ -1032,6 +1118,7 @@ class GmailSettingsDialog(WidgetSettingsDialog):
             'check_interval_minutes': int(self.update_interval.value()),
             'max_messages': self.max_messages.value(),
             'notify_sound': self.sound_check.isChecked(),
+            'sound_file': self.sound_combo.currentData() or '',
             'bg_opacity': self.bg_opacity.value(),
             'color': self.widget.config.get('color', '#ffffff'),
         }
