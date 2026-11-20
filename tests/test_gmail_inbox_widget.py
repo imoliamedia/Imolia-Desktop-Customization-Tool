@@ -62,6 +62,13 @@ class FakeIMAP:
 
 
 class TestHelpers(unittest.TestCase):
+    def test_account_label_prefers_the_chosen_name_over_the_address(self):
+        self.assertEqual(gmail.account_label({'email': 'a@gmail.com', 'name': 'Privé'}), 'Privé')
+
+    def test_account_label_falls_back_to_the_address_without_a_name(self):
+        self.assertEqual(gmail.account_label({'email': 'a@gmail.com'}), 'a@gmail.com')
+        self.assertEqual(gmail.account_label({'email': 'a@gmail.com', 'name': '   '}), 'a@gmail.com')
+
     def test_gmail_url_selects_the_account(self):
         self.assertEqual(gmail.gmail_url('a@gmail.com'), 'https://mail.google.com/mail/?authuser=a%40gmail.com')
 

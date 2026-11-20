@@ -5,6 +5,7 @@ Shows the unread mail of **several Gmail addresses at once**, and checks for new
 ## Features
 
 - One row per account with an unread counter
+- Give each account a **display name** (e.g. "Private", "Work"): the widget then shows only that name and never the e-mail address, so visitors can't read your addresses off the screen. Without a name, the address is shown
 - Click an address to open that account's Gmail in your default browser (it opens the right account via `authuser`)
 - Click the arrow next to the counter to list the newest unread messages (sender, subject, time)
 - Click a message to open that conversation in Gmail
@@ -20,12 +21,13 @@ Gmail no longer accepts your normal password in other apps, so every account nee
 
 1. Turn on 2-Step Verification for the Google account (if it isn't on already).
 2. Go to <https://myaccount.google.com/apppasswords> and create an app password (name it e.g. "Imolia widget"). Google shows 16 characters, spaces don't matter.
-3. In the widget click ⚙ (or use Settings → Widgets in the tray menu), then **Toevoegen…**, enter the address and the app password and press **Testen** to verify it.
+3. In the widget click ⚙ (or use Settings → Widgets in the tray menu), then **Toevoegen…**, enter the address, a display name and the app password and press **Testen** to verify it. Use **Bewerken…** later to change the name or the app password (leave the password empty to keep it).
 
 Repeat for each address. App passwords are not available for accounts with Advanced Protection, or when a Google Workspace admin has disabled them.
 
 ## Settings
 
+- Accounts: address, display name, app password
 - Check interval (1–120 minutes)
 - Number of unread messages shown per account
 - Sound on new mail: on/off and which sound (Windows sounds or your own `.wav`)
@@ -40,6 +42,6 @@ Repeat for each address. App passwords are not available for accounts with Advan
 
 ## Troubleshooting
 
-- *"Inloggen mislukt"*: the app password is wrong or was revoked. Create a new one and use **Wachtwoord wijzigen…**.
+- *"Inloggen mislukt"*: the app password is wrong or was revoked. Create a new one and use **Bewerken…**.
 - *"Geen verbinding met Gmail"*: no internet, or a firewall blocks `imap.gmail.com:993`.
 - Check the application logs for details.

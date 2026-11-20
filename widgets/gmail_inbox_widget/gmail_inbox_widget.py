@@ -180,6 +180,12 @@ def decrypt_password(token):
 # Gmail via IMAP
 # --------------------------------------------------------------------------
 
+def account_label(account):
+    """De naam waaronder een account in de widget verschijnt: de zelfgekozen naam,
+    en alleen zonder naam het e-mailadres. Zo hoeft een bezoeker geen adressen te zien."""
+    return (account.get('name') or '').strip() or account['email']
+
+
 def gmail_url(address, thread_id_hex=None):
     """Link die Gmail opent bij het juiste account (en eventueel direct bij één gesprek)."""
     url = f"https://mail.google.com/mail/?authuser={quote(address)}"
@@ -692,7 +698,7 @@ class GmailInboxWidget(DraggableWidget):
     def _draw_account(self, painter, rect, clip, key, now):
         state = self.states[key]
         index = [a['email'].lower() for a in self.config['accounts']].index(key)
-        address = self.config['accounts'][index]['email']
+        address = account_label(self.config['accounts'][index])  # naam of (zonder naam) adres
         hovered = self._hover is not None and rect.contains(self._hover) and clip.contains(self._hover)
         flashing = now < state['new_until']
 
@@ -876,9 +882,9 @@ class GmailInboxWidget(DraggableWidget):
 # --------------------------------------------------------------------------
 
 class AccountDialog(QDialog):
-    """Een Gmail-account toevoegen of het app-wachtwoord van een bestaand account wijzigen."""
+    """Een Gmail-account toevoegen, of de naam / het app-wachtwoord van een bestaand account wijzigen."""
 
-    def __init__(self, parent=None, address='', existing=()):
+    def __init__(self, parent=None, address='', existing=(), name=''):
         super().__init__(parent)
         self.setWindowTitle('Gmail-account')
         self.existing = {e.lower() for e in existing}
@@ -889,11 +895,19 @@ class AccountDialog(QDialog):
         self.address_edit = QLineEdit(address)
         self.address_edit.setReadOnly(self.editing)
         form.addRow('E-mailadres:', self.address_edit)
+        self.name_edit = QLineEdit(name)
+        self.name_edit.setPlaceholderText('bijv. Privé, Werk, Kaasdagboek')
+        form.addRow('Naam in de widget:', self.name_edit)
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
-        self.password_edit.setPlaceholderText('xxxx xxxx xxxx xxxx')
+        self.password_edit.setPlaceholderText('leeg laten = ongewijzigd' if self.editing else 'xxxx xxxx xxxx xxxx')
         form.addRow('App-wachtwoord:', self.password_edit)
         layout.addLayout(form)
+
+        hint = QLabel('De widget toont alleen deze naam; het e-mailadres blijft verborgen. '
+                      'Zonder naam zie je het adres.')
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
 
         link = QLabel(f'<a href="{APP_PASSWORD_URL}">App-wachtwoord aanmaken bij Google</a> '
                       '(tweestapsverificatie moet aan staan)')
@@ -919,13 +933,16 @@ class AccountDialog(QDialog):
     def values(self):
         return self.address_edit.text().strip(), self.password_edit.text().strip()
 
-    def _validate(self):
+    def display_name(self):
+        return self.name_edit.text().strip()
+
+    def _validate(self, need_password=True):
         address, password = self.values()
         if '@' not in address or ' ' in address:
             return 'Vul een geldig e-mailadres in.'
         if not self.editing and address.lower() in self.existing:
             return 'Dit account staat er al in.'
-        if not password:
+        if need_password and not password:
             return 'Vul het app-wachtwoord in.'
         return None
 
@@ -946,7 +963,8 @@ class AccountDialog(QDialog):
             self.result_label.setText(result['error'])
 
     def accept_if_valid(self):
-        problem = self._validate()
+        # Bij bewerken mag het wachtwoord leeg blijven: dan blijft het bestaande staan.
+        problem = self._validate(need_password=not self.editing)
         if problem:
             self.result_label.setText(problem)
             return
@@ -972,7 +990,7 @@ class GmailSettingsDialog(WidgetSettingsDialog):
         self.account_list.setMinimumHeight(120)
         accounts_layout.addWidget(self.account_list)
         row = QHBoxLayout()
-        for text, handler in (('Toevoegen…', self.add_account), ('Wachtwoord wijzigen…', self.edit_account),
+        for text, handler in (('Toevoegen…', self.add_account), ('Bewerken…', self.edit_account),
                               ('Verwijderen', self.remove_account)):
             button = QPushButton(text)
             button.clicked.connect(handler)
@@ -1082,29 +1100,35 @@ class GmailSettingsDialog(WidgetSettingsDialog):
     def _refresh_list(self):
         self.account_list.clear()
         for account in self.accounts:
-            self.account_list.addItem(account['email'])
+            self.account_list.addItem(account_label(account))  # naam; het adres alleen als er geen naam is
 
     def add_account(self):
         dialog = AccountDialog(self, existing=[a['email'] for a in self.accounts])
         if dialog.exec_():
             address, password = dialog.values()
-            self.accounts.append({'email': address, 'password': encrypt_password(password.replace(' ', ''))})
+            self.accounts.append({'email': address, 'name': dialog.display_name(),
+                                  'password': encrypt_password(password.replace(' ', ''))})
             self._refresh_list()
 
     def edit_account(self):
         row = self.account_list.currentRow()
         if row < 0:
             return
-        dialog = AccountDialog(self, address=self.accounts[row]['email'])
+        account = self.accounts[row]
+        dialog = AccountDialog(self, address=account['email'], name=account.get('name', ''))
         if dialog.exec_():
             _, password = dialog.values()
-            self.accounts[row]['password'] = encrypt_password(password.replace(' ', ''))
+            account['name'] = dialog.display_name()
+            if password:
+                account['password'] = encrypt_password(password.replace(' ', ''))
+            self._refresh_list()
+            self.account_list.setCurrentRow(row)
 
     def remove_account(self):
         row = self.account_list.currentRow()
         if row < 0:
             return
-        address = self.accounts[row]['email']
+        address = account_label(self.accounts[row])
         if QMessageBox.question(self, 'Account verwijderen', f'{address} uit de widget verwijderen?',
                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes:
             del self.accounts[row]
