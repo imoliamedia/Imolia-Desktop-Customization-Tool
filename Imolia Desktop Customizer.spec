@@ -9,12 +9,16 @@
 # (voor de LLM Chat widget) ontbraken in hiddenimports, waardoor die
 # widgets bij elke start via de embedded Python probeerden te installeren
 # in plaats van al gewoon aanwezig te zijn.
+# imaplib (Gmail Inbox widget) en winsound (meldingsgeluid) zijn standaard-
+# bibliotheekmodules die PyInstaller alleen meeneemt als de app zelf ze
+# importeert - widgets worden pas tijdens het draaien geladen, dus zonder
+# hiddenimports ontbraken ze in de exe (ModuleNotFoundError: imaplib).
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[('resources', 'resources'), ('src', 'src'), ('widgets', 'widgets'), ('embedded_python', 'embedded_python')],
-    hiddenimports=['PyQt5', 'PyQt5.QtWidgets', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWebEngineWidgets', 'psutil', 'json', 'importlib', 'icalendar', 'recurring_ical_events', 'requests', 'openai'],
+    hiddenimports=['PyQt5', 'PyQt5.QtWidgets', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWebEngineWidgets', 'psutil', 'json', 'importlib', 'icalendar', 'recurring_ical_events', 'requests', 'openai', 'imaplib', 'winsound'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['runtime_hook.py'],

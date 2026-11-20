@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- New Gmail Inbox widget: shows unread counts and the newest unread messages
+  for several Gmail accounts at once, checks for new mail every X minutes,
+  opens the right account/message in your browser, and can mark mail as read
+  or move it to the trash. Signs in with Google app passwords over IMAP,
+  stored encrypted with Windows DPAPI.
 - New System Overview widget: a Task Manager-style dashboard showing CPU,
   memory, GPU, GPU memory, network and disk at once, each with a live
   graph. Includes GPU temperature and power draw (NVIDIA); CPU temperature
