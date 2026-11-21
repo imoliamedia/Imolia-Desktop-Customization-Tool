@@ -1,58 +1,56 @@
 # Pomodoro Timer Widget
 
 ## Description
-The Pomodoro Timer Widget is a productivity tool designed for the Imolia Desktop Customization Tool. It implements the Pomodoro Technique, a time management method developed by Francesco Cirillo in the late 1980s. This technique uses a timer to break work into intervals, traditionally 25 minutes in length, separated by short breaks.
+
+The Pomodoro Timer Widget is a productivity tool for the Imolia Desktop Customizer. It implements the Pomodoro Technique, a time management method developed by Francesco Cirillo in the late 1980s: work in focused intervals, traditionally 25 minutes, separated by short breaks.
+
+![Pomodoro Timer Widget Screenshot](./screenshots/pomodoro_widget_screenshot.png)
 
 ## Features
-- Customizable work and break durations
-- Visual timer display
-- Start and stop functionality
-- Automatic switching between work and break phases
-- Customizable color scheme
 
-## Installation
-1. Ensure you have the Imolia Desktop Customization Tool installed on your system.
-2. Copy the `Pomodoro Productivity Timer.py` file to your Imolia Desktop Customizer Widgets folder:
-   ```
-   C:\Users\[YourUsername]\Documents\Imolia Desktop Customizer Widgets\
-   ```
-3. Restart the Imolia Desktop Customizer application or refresh the widget list.
+- Customizable work and break durations
+- A large `MM:SS` countdown with a status line (*Ready to start*, *Work phase*, *Break phase*, *Timer stopped*)
+- Automatic switching between work and break phases, over and over until you stop it
+- Customizable color
+
+The widget does **not** play a sound or show a notification when a phase ends; look at the status line.
 
 ## Usage
-1. Open the Imolia Desktop Customizer settings.
-2. Navigate to the Widgets tab.
-3. Find and activate the "Pomodoro Timer" widget.
-4. The widget should now appear on your desktop.
-5. Click the "Start" button to begin the Pomodoro timer.
-6. The timer will automatically switch between work and break phases.
-7. Click the "Stop" button to pause the timer at any time.
+
+1. Right-click the tray icon of the Imolia Desktop Customizer, choose **Settings**, tick **Pomodoro Productivity Timer** and click **Opslaan**.
+2. Click **Start** to begin a work phase.
+3. The timer counts down and switches between work and break phases by itself.
+4. Click **Stop** to stop the timer. **Stop does not pause:** the next **Start** begins a new work phase with the full time again.
 
 ## Configuration
-You can customize the Pomodoro Timer widget by accessing its settings:
 
-1. In the Imolia Desktop Customizer settings, find the Pomodoro Timer in the widget list.
-2. Click the settings icon next to the widget name.
-3. In the settings dialog, you can adjust:
-   - Work duration (in minutes)
-   - Break duration (in minutes)
-   - Widget color
+1. Open **Settings** again and click the settings button on the widget's row.
+2. In the dialog you can change:
+   - **Work duration (minutes)** - 1 to 60, default 25
+   - **Break duration (minutes)** - 1 to 30, default 5
+   - **Color**
 
-## Dependencies
-This widget requires:
-- PyQt5 (version 5.15.6 or later)
+The settings are stored in `pomodoro_timer_config.json` next to the widget file in your widgets folder (`Documents\Imolia Desktop Customizer Widgets`). Delete that file to reset the widget.
 
 ## Troubleshooting
-If the widget doesn't appear or function correctly:
-1. Ensure that the `Pomodoro Productivity Timer.py` file is in the correct folder.
-2. Check that you have the required dependencies installed.
-3. Restart the Imolia Desktop Customizer application.
-4. If problems persist, check the application logs for any error messages.
+
+If the widget does not appear or does not work correctly:
+
+1. Check that the widget is ticked and saved in the Settings window.
+2. Left-click the tray icon: it shows/hides the whole overlay.
+3. Restart the Imolia Desktop Customizer.
+4. Look for error messages in `%APPDATA%\Imolia Desktop Customizer\logs\app.log`.
+
+See also the [Troubleshooting guide](../../docs/TROUBLESHOOTING.md).
 
 ## Contributing
-If you'd like to contribute to the development of this widget, please follow the contribution guidelines outlined in the main Imolia Desktop Customizer repository.
+
+If you'd like to contribute to this widget, please follow the [contribution guidelines](../../CONTRIBUTING.md).
 
 ## License
-This widget is released under the GNU General Public License v3.0, in line with the Imolia Desktop Customization Tool's licensing.
+
+This widget is released under the GNU General Public License v3.0, in line with the project's license.
 
 ## Support
-For support, please open an issue in the Imolia Desktop Customizer GitHub repository or contact the Imolia Media support team.
+
+For support, please open an issue in the [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).

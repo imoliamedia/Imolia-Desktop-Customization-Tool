@@ -1,66 +1,51 @@
 # ESP32 Web Dashboard Widget
 
-Toont de webinterface van een apparaat op je lokale netwerk (bijvoorbeeld
-een ESP32-project met een ingebouwde webserver, zoals een klimaatkast,
-hydrocultuursysteem, of elk ander zelfgebouwd dashboard) rechtstreeks als
-widget op je desktop — altijd zichtbaar, zonder een browservenster te
-hoeven openen.
+Shows the web interface of a device on your local network - for example an ESP32 project with a built-in web server such as a climate cabinet or a hydroponics system, a 3D printer's Mainsail/Fluidd page, or any other homemade dashboard - directly as a widget on your desktop. Always visible, without opening a browser window.
 
-## Functionaliteit
+This widget has no screenshot on purpose: it shows **whatever web page you point it at** - a Mainsail or Fluidd page of your 3D printer, a climate cabinet's own dashboard, ... - so what you see is the page of your device, in a frameless window on your desktop.
 
-- Voeg één of meerdere systemen toe, elk met een naam en een IP-adres (of
-  volledige URL).
-- Wissel tussen systemen via de dropdown bovenaan de widget.
-- Klik op "Herlaad" om de huidige pagina te verversen.
-- De widget onthoudt welk systeem je het laatst bekeek, en de grootte/positie
-  van het venster.
+## Features
 
-## Vereisten
+- Add one or more *systems*, each with a name and an IP address (or a full URL).
+- Switch between systems with the drop-down at the top of the widget.
+- Click **Herlaad** (Reload) to refresh the current page.
+- The widget remembers which system you looked at last, and the size and position of its window.
 
-Deze widget gebruikt `QWebEngineView` om webpagina's weer te geven, en heeft
-dus naast `PyQt5` ook `PyQtWebEngine` nodig:
+## Requirements
+
+This widget uses `QWebEngineView` to display web pages, so besides `PyQt5` it needs `PyQtWebEngine`:
 
 ```
 PyQt5==5.15.6
 PyQtWebEngine==5.15.6
 ```
 
-Als `PyQtWebEngine` niet beschikbaar is, toont de widget een duidelijke
-melding in plaats van te crashen.
+The packaged program already contains it. If `PyQtWebEngine` is not available, the widget shows a clear message (*QtWebEngine is niet geïnstalleerd*) instead of crashing.
 
-## Een systeem toevoegen
+## Adding a system
 
-1. Open de widgetinstellingen (tandwiel-icoon / instellingenknop van de widget).
-2. Klik op "Nieuw systeem".
-3. Vul een herkenbare naam in (bv. "Klimaatkast") en het lokale IP-adres van
-   het apparaat (bv. `192.168.1.50` — met of zonder poortnummer, bv.
-   `192.168.1.50:80`).
-4. Klik op "Bijwerken" om de naam/IP te bevestigen, en sluit de instellingen
-   met "Save" om te bewaren.
+1. Right-click the tray icon, choose **Settings**, tick **Esp32 Web Dashboard** and click **Opslaan**.
+2. Open **Settings** again and click the settings button on the widget's row.
+3. Click **Nieuw systeem** (New system).
+4. Enter a recognizable name (for example "Climate cabinet") and the local IP address of the device (for example `192.168.1.50`, with or without a port such as `192.168.1.50:80`).
+5. Click **Bijwerken** (Update) to confirm the name and address, and close the dialog with **Save** to keep them. To remove a system, select it and click **Verwijderen** (Delete).
 
-## Meerdere dashboards tegelijk zichtbaar
+## Several dashboards visible at the same time
 
-De dropdown laat je wisselen tussen systemen, maar toont er telkens maar
-één tegelijk. Wil je bijvoorbeeld je klimaatkast, een 3D-printer en nog
-een 3D-printer **allemaal tegelijk** op je scherm, in aparte vensters?
+The drop-down lets you switch between systems, but shows only one at a time. Want your climate cabinet and two 3D printers **all at once**, in separate windows?
 
-1. Kopieer `esp32_web_dashboard.py` in je widgetmap
-   (`Documenten\Imolia Desktop Customizer Widgets`) en geef de kopie een
-   andere bestandsnaam (bv. `printer_ad5x.py`).
-2. Herstart de app (of klik op "Vernieuwen" in de widgetlijst) — de kopie
-   verschijnt als een aparte widget met een eigen naam, gebaseerd op de
-   bestandsnaam.
-3. Activeer hem via Instellingen en geef hem zijn eigen systeem (naam +
-   IP-adres) mee.
+1. Copy `esp32_web_dashboard.py` in your widgets folder (`Documents\Imolia Desktop Customizer Widgets`) and give the copy another file name (for example `printer_ad5x.py`).
+2. Restart the program (or click **Vernieuwen** in the widget list). The copy appears as a separate widget, named after its file.
+3. Activate it in Settings and give it its own system (name + IP address).
 
-Elke kopie krijgt automatisch zijn **eigen, onafhankelijke**
-configuratiebestand (zie hieronder) — kopieën beïnvloeden elkaar niet.
+Every copy automatically gets its **own, independent** configuration file (see below), so copies do not affect each other.
 
-## Configuratiebestand
+## Configuration file
 
-De instellingen worden opgeslagen naast het widget-bestand, in een
-bestand genaamd `<bestandsnaam-zonder-.py>_config.json`. Voor
-`esp32_web_dashboard.py` is dat dus `esp32_web_dashboard_config.json`;
-voor een kopie `printer_ad5x.py` wordt dat `printer_ad5x_config.json`.
-Zo krijgt elke kopie automatisch zijn eigen configuratie, ook al staan ze
-allemaal in dezelfde map.
+The settings are saved next to the widget file in a file named `<file name without .py>_config.json`. For `esp32_web_dashboard.py` that is `esp32_web_dashboard_config.json`; for a copy `printer_ad5x.py` it is `printer_ad5x_config.json`. This is how every copy has its own settings even though they all live in the same folder.
+
+## Troubleshooting
+
+- A blank page: open the same address in a normal browser to check that the device answers.
+- The widget loads web pages with software rendering. This avoids a Windows desktop problem (black screen, vanishing taskbar) that the hardware-accelerated web view could cause on the transparent overlay.
+- See also the [Troubleshooting guide](../../docs/TROUBLESHOOTING.md) and `%APPDATA%\Imolia Desktop Customizer\logs\app.log`.

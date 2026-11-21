@@ -1,53 +1,47 @@
 # Calculator Widget
 
-## Description
-The Calculator Widget is a simple yet functional calculator for the Imolia Desktop Customization Tool. It provides basic arithmetic operations and can be customized in appearance.
+A small calculator for your desktop.
+
+![Calculator Widget Screenshot](./screenshots/calculator_widget_screenshot.png)
 
 ## Features
-- Basic arithmetic operations (addition, subtraction, multiplication, division)
-- Customizable colors for background, text, and buttons
-- Resizable widget with a custom move handle
-- Persistent configuration
 
-## Dependencies
-- PyQt5==5.15.6
-
-## Installation
-1. Ensure you have Python 3.7 or higher installed.
-2. Install the required dependencies:
-   ```
-   pip install PyQt5==5.15.6
-   ```
-3. Place the `calculator.py` file in the designated widgets folder of your Imolia Desktop Customization Tool installation.
+- The four basic operations (`+ - * /`), decimals, brackets `( )` and a percent key `%` (which divides the current value by 100)
+- Use the buttons or your keyboard (see below)
+- Customizable colors for the background, the text and the buttons
+- Resizable, with a separate handle for moving it
+- Settings are remembered between sessions
 
 ## Usage
-1. Launch the Imolia Desktop Customization Tool.
-2. Add the Calculator Widget to your desktop.
-3. Use the buttons to perform calculations.
-4. Drag the widget using the handle in the bottom-left corner to reposition it.
-5. Resize the widget using the handle in the bottom-right corner.
+
+1. Right-click the tray icon of the Imolia Desktop Customizer, choose **Settings**, tick **Calculator** and click **Opslaan**.
+2. Click the buttons to calculate. With the widget focused you can also type:
+
+| Key | Action |
+|---|---|
+| Digits, `+ - * / . ( ) %` | Enter them |
+| `Enter` | Calculate (`=`) |
+| `Backspace` | Delete the last character |
+| `Esc` | Clear (`C`) |
+
+3. Move the widget with the handle in its **bottom-left** corner (the buttons themselves do not move it).
+4. Resize it with the small grey square in the **bottom-right** corner.
 
 ## Customization
-You can customize the following aspects of the Calculator Widget:
 
-1. Background Color
-2. Text Color
-3. Button Color
-
-To access the settings:
-1. Open the Imolia Desktop Customizer tray icon → "Settings" → the "Widgets" tab.
-2. Click the settings button next to the Calculator widget.
-3. Use the color pickers to choose your preferred colors.
-4. Click 'Save' to apply the changes.
+1. Open **Settings** again and click the settings button on the Calculator's row.
+2. Use the color buttons to choose the **Background**, **Text** and **Button** colors.
+3. Click **Save**.
 
 ## Configuration
-The widget's configuration is automatically saved to `calculator_widget_config.json` in the same directory as the widget file. This ensures that your settings persist between sessions.
+
+The settings are saved automatically to `calculator_widget_config.json`, next to the widget file in your widgets folder (`Documents\Imolia Desktop Customizer Widgets`). Delete that file to reset the widget.
 
 ## Troubleshooting
-If you encounter any issues:
-1. Check if the widget is properly registered in the widget manager.
-2. Verify that all dependencies are correctly installed.
-3. Check the application logs for any error messages.
-4. Ensure you have the necessary permissions to write to the configuration file.
 
-If problems persist, please contact the Imolia Desktop Customization Tool support team.
+1. Check that the widget is ticked and saved in the Settings window.
+2. Left-click the tray icon: it shows/hides the whole overlay.
+3. Look for error messages in `%APPDATA%\Imolia Desktop Customizer\logs\app.log`.
+4. Make sure you are allowed to write to the widgets folder (the widget saves its settings there).
+
+See also the [Troubleshooting guide](../../docs/TROUBLESHOOTING.md). If problems persist, please open an issue on our [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).

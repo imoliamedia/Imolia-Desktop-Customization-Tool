@@ -1,49 +1,43 @@
 # System Monitor Widget
 
-The System Monitor Widget provides real-time information about your system's performance directly on your desktop.
+The System Monitor Widget shows real-time information about your PC as simple text on your desktop. For graphs of CPU, memory, GPU, network and disk all at once, see the [System Overview widget](../system_overview_widget/README.md).
 
 ![System Monitor Widget Screenshot](./screenshots/system_monitor_widget_screenshot.png)
 
 ## Features
 
-- Displays CPU usage
-- Shows memory (RAM) usage
-- Monitors disk usage
-- Tracks network activity
-- Customizable update interval
-- Adjustable font color
-- Resizable widget
+Four lines, refreshed automatically:
+
+- **CPU** - total usage in %
+- **Memory** - RAM in use in %
+- **Disk** - how full your system drive (usually `C:`) is, in %
+- **Network** - current traffic in Mbps (download and upload added together)
+
+Plus a customizable update interval, an adjustable text color and a resizable widget.
 
 ## Configuration
 
-You can configure the System Monitor Widget through the application settings:
+1. Right-click the tray icon of the Imolia Desktop Customizer and choose **Settings**.
+2. Tick **System Monitor Widget** and click **Opslaan**.
+3. Open **Settings** again and click the settings button on its row. You can change:
+   - **Update interval (ms)** - how often the numbers refresh (100 - 10000 ms, default 1000 ms)
+   - **Tekstkleur** - the text color
 
-1. Click on the Imolia Desktop Customizer tray icon
-2. Select "Settings" from the menu
-3. In the Settings window, go to the "Widgets" tab
-4. Find the System Monitor Widget in the list and click on its settings button
-5. In the settings dialog, you can adjust:
-   - Update interval (how often the information refreshes)
-   - Font color
+The settings are stored in `system_monitor_widget_config.json` next to the widget file in your widgets folder.
 
 ## Usage Tips
 
-- Click and drag to move the widget around your desktop
-- Click and drag the bottom-right corner to resize the widget
-- The widget updates automatically based on the set interval
+- Drag the widget to move it around your desktop
+- Drag the small grey square in its bottom-right corner to resize it (the text grows with the widget)
+- A longer update interval uses (slightly) fewer resources
 
 ## Troubleshooting
 
-If the widget is not displaying correctly or showing accurate information:
+If the widget is not displaying correctly or shows strange numbers:
 
-1. Ensure that the widget is activated in the Imolia Desktop Customizer settings
-2. Try restarting the application
-3. Check that the application has the necessary permissions to access system information
-4. Verify that no other software is conflicting with system monitoring
-5. Check the application logs for any error messages
+1. Check that the widget is ticked and saved in the Settings window.
+2. Left-click the tray icon: it shows/hides the whole overlay.
+3. Restart the application.
+4. Look for error messages in `%APPDATA%\Imolia Desktop Customizer\logs\app.log`.
 
-For further assistance, please open an issue on our [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).
-
-## Note on Resource Usage
-
-The System Monitor Widget itself uses a small amount of system resources to gather and display information. If you notice any performance impact, try increasing the update interval in the widget settings.
+See also the [Troubleshooting guide](../../docs/TROUBLESHOOTING.md). For further assistance, please open an issue on our [GitHub repository](https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool/issues).
