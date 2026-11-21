@@ -13,11 +13,44 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QDialog, QLabel, QSpinBox, QColorDialog, QPushButton, QHBoxLayout, QGroupBox
-from PyQt5.QtCore import Qt, QPoint, QSize, QEvent
-from PyQt5.QtGui import QCursor, QColor, QResizeEvent, QPainter, QPen, QBrush
+import functools
+import logging
+
+from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QDialog, QLabel, QSpinBox, QColorDialog,
+                             QPushButton, QHBoxLayout, QGroupBox)
+from PyQt5.QtCore import Qt, QPoint, QThread, QTimer
+from PyQt5.QtGui import QColor, QPainter, QBrush
+
+logger = logging.getLogger('DesktopCustomizer.DraggableWidget')
+
+# Zo lang moet het stil zijn voordat een gewijzigde configuratie echt naar schijf gaat.
+SAVE_DELAY_MS = 400
+
+
+def _debounced(original):
+    """Maak van de save_config() van een widget een versie die schrijfacties bundelt.
+
+    Tijdens slepen of schalen komt er per muisbeweging een save_config()-aanroep
+    binnen, vaak zelfs meerdere (de basisklasse én de widget zelf). Zonder bundelen
+    betekende dat tientallen keer per seconde het configbestand herschrijven. Nu
+    wordt pas SAVE_DELAY_MS na de laatste aanroep geschreven, en altijd nog bij
+    sluiten van de widget en bij afsluiten van de app (zie flush_config()).
+    """
+    @functools.wraps(original)
+    def save_config(self, *args, **kwargs):
+        self._request_save(original, args, kwargs)
+
+    save_config._is_debounced = True
+    return save_config
+
 
 class DraggableWidget(QWidget):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        own = cls.__dict__.get('save_config')
+        if own is not None and not getattr(own, '_is_debounced', False):
+            cls.save_config = _debounced(own)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -36,6 +69,42 @@ class DraggableWidget(QWidget):
     def save_config(self):
         # Deze methode moet worden overschreven door kindklassen
         pass
+
+    def _request_save(self, original, args, kwargs):
+        # Alleen op de UI-thread bundelen; een QTimer starten vanuit een andere
+        # thread werkt niet, dus dan gewoon direct schrijven.
+        if QThread.currentThread() != self.thread():
+            original(self, *args, **kwargs)
+            return
+        self._pending_save = (original, args, kwargs)
+        timer = getattr(self, '_save_timer', None)
+        if timer is None:
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self.flush_config)
+            self._save_timer = timer
+            app = QApplication.instance()
+            if app is not None:
+                app.aboutToQuit.connect(self.flush_config)
+        timer.start(SAVE_DELAY_MS)
+
+    def flush_config(self):
+        """Schrijf een nog openstaande (uitgestelde) configuratiewijziging meteen weg."""
+        pending = getattr(self, '_pending_save', None)
+        self._pending_save = None
+        timer = getattr(self, '_save_timer', None)
+        if timer is not None:
+            timer.stop()
+        if pending:
+            original, args, kwargs = pending
+            try:
+                original(self, *args, **kwargs)
+            except Exception:
+                logger.exception("Configuratie opslaan mislukt")
+
+    def closeEvent(self, event):
+        self.flush_config()
+        super().closeEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:

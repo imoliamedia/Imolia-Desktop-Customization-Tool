@@ -124,8 +124,12 @@ if sys.platform == 'win32':
     class _DataBlob(ctypes.Structure):
         _fields_ = [('cbData', wintypes.DWORD), ('pbData', ctypes.POINTER(ctypes.c_char))]
 
-    _crypt32 = ctypes.windll.crypt32
-    _kernel32 = ctypes.windll.kernel32
+    # Eigen WinDLL-exemplaren, niet ctypes.windll.crypt32: dat object wordt door alle widgets
+    # gedeeld, en elke widget zet er zijn eigen argtypes op. Zijn er twee widgets met DPAPI
+    # actief (Gmail Inbox én LLM Chat), dan overschrijven ze elkaars instellingen en geeft
+    # de tweede "expected LP__DataBlob instance" bij het versleutelen.
+    _crypt32 = ctypes.WinDLL('crypt32')
+    _kernel32 = ctypes.WinDLL('kernel32')
     _crypt32.CryptProtectData.argtypes = [
         ctypes.POINTER(_DataBlob), wintypes.LPCWSTR, ctypes.POINTER(_DataBlob),
         ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(_DataBlob)]

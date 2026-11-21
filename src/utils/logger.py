@@ -15,9 +15,19 @@
 
 import logging
 import os
+from logging.handlers import RotatingFileHandler
+
+# Een logbestand mag niet onbeperkt groeien: een fout die elke seconde terugkomt
+# (zoals de oude recursiefout in het widgetbeheer) maakte van app.log 93 MB.
+# Nu blijft het bij maximaal 2 MB + 3 oudere bestanden van elk 2 MB.
+LOG_MAX_BYTES = 2 * 1024 * 1024
+LOG_BACKUP_COUNT = 3
+
 
 def setup_logger():
     logger = logging.getLogger('DesktopCustomizer')
+    if logger.handlers:
+        return logger  # al ingesteld; opnieuw aanroepen mag geen dubbele regels geven
     logger.setLevel(logging.DEBUG)
 
     # Creëer logs directory in AppData
@@ -27,7 +37,8 @@ def setup_logger():
 
     try:
         # File handler
-        file_handler = logging.FileHandler(log_file)
+        file_handler = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES,
+                                           backupCount=LOG_BACKUP_COUNT, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
 
         # Console handler

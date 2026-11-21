@@ -19,7 +19,9 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QCalendarWidget,
                              QListWidget, QListWidgetItem, QPushButton, QDialog, 
                              QFormLayout, QLineEdit, QSpinBox, QLabel, QColorDialog, QComboBox,
                              QApplication, QMessageBox, QGroupBox, QWidget)
-from PyQt5.QtCore import Qt, QTimer, QDate
+import threading
+
+from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal
 from PyQt5.QtGui import QColor, QTextCharFormat
 
 # Importeer dependencies voor Google Calendar
@@ -96,10 +98,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GoogleCalendarWidget")
 
 class GoogleCalendarWidget(DraggableWidget):
+    # (events of None bij mislukken, foutmeldingen, show_errors) - vanuit de achtergrondthread
+    events_fetched = pyqtSignal(object, list, bool)
+
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
         self.events_loaded = False  # Bijhouden of events zijn geladen
+        # Het downloaden van de agenda's gebeurt in een achtergrondthread. Eerder
+        # gebeurde dat op de UI-thread (met een time-out van 10 s per agenda),
+        # waardoor je bureaublad vastliep bij weinig of geen internet, en bij
+        # elke klik op een datum opnieuw. Nu houdt de widget de laatst opgehaalde
+        # events in een cache en tonen alle lijsten die.
+        self._events = None          # None = nog niet geladen
+        self._fetching = False
+        self._refetch_requested = None
+        self.events_fetched.connect(self._on_events_fetched)
         self.initUI()
         self.setupUpdateTimer()
         
@@ -113,15 +127,9 @@ class GoogleCalendarWidget(DraggableWidget):
         """Initiële kalenderupdate met betere foutafhandeling"""
         logger.info("Eerste kalenderupdate uitvoeren...")
         try:
-            # Probeer events op te halen en agendawidget bij te werken
-            success = self.updateCalendar(show_errors=True)
-            if success:
-                logger.info("Eerste kalenderupdate succesvol voltooid.")
-                self.events_loaded = True
-            else:
-                # Als de eerste update mislukt, plan een snelle herpoging (na 10 seconden)
-                logger.warning("Eerste kalenderupdate mislukt, nieuwe poging gepland over 10 seconden.")
-                QTimer.singleShot(10000, lambda: self.updateCalendar(show_errors=True))
+            # Start het ophalen op de achtergrond. De herpoging bij een mislukte
+            # eerste update zit in _on_events_fetched().
+            self.updateCalendar(show_errors=True)
         except Exception as e:
             logger.error(f"Onverwachte fout bij initiële kalenderupdate: {e}")
             logger.error(traceback.format_exc())
@@ -223,94 +231,116 @@ class GoogleCalendarWidget(DraggableWidget):
             logger.error(traceback.format_exc())
 
     def updateCalendar(self, show_errors=False):
-        """Haal events op en werk de kalender bij."""
+        """Start het ophalen van de agenda's op de achtergrond; de UI blijft bruikbaar.
+
+        Het resultaat komt binnen in _on_events_fetched(). Geeft False terug als er
+        niets te doen is (geen agenda-URL's), anders True.
+        """
         try:
-            logger.info("Kalender bijwerken gestart...")
-            
-            # Controleer of er URLs zijn geconfigureerd
             if not self.config['ical_urls']:
                 logger.warning("Geen iCal URLs geconfigureerd, kan agenda niet bijwerken")
                 if show_errors:
                     QMessageBox.warning(self, "Geen agenda's geconfigureerd",
                                        "Er zijn geen agenda-URLs geconfigureerd. Ga naar instellingen om agenda's toe te voegen.")
                 return False
-                
-            # Statusmelding in de eventList als er events worden opgehaald
-            if self.eventList.count() == 0:
+
+            if self._fetching:
+                # Er loopt al een download (misschien nog met oude instellingen):
+                # daarna meteen opnieuw, zodat een wijziging niet verloren gaat.
+                self._refetch_requested = show_errors
+                return True
+
+            logger.info("Kalender bijwerken gestart (op de achtergrond)...")
+            self._fetching = True
+            if self._events is None and self.eventList.count() == 0:
                 self.eventList.addItem("Agenda gebeurtenissen laden...")
-            
-            # Events ophalen
-            events = self.fetchEvents(show_errors)
-            
-            if events is None:  # Fout bij het ophalen van events
-                if self.eventList.count() == 1 and self.eventList.item(0).text() == "Agenda gebeurtenissen laden...":
-                    self.eventList.clear()
-                    self.eventList.addItem("Fout bij laden van agenda. Probeer opnieuw.")
-                return False
-                
-            # Kalender bijwerken met events
-            self.updateCalendarWithEvents(events)
-            
-            # Eventuele status berichten verwijderen
-            if self.eventList.count() == 1:
-                item_text = self.eventList.item(0).text()
-                if item_text in ["Agenda gebeurtenissen laden...", "Fout bij laden van agenda. Probeer opnieuw."]:
-                    self.eventList.clear()
-            
-            # Toon aankomende events of events voor geselecteerde datum
-            self.updateEventList()
-            
-            logger.info("Kalender succesvol bijgewerkt")
+
+            threading.Thread(target=self._fetch_in_background,
+                             args=(list(self.config['ical_urls']), show_errors),
+                             name='GoogleCalendarFetch', daemon=True).start()
             return True
-            
         except Exception as e:
-            logger.error(f"Fout bij bijwerken kalender: {e}")
+            self._fetching = False
+            logger.error(f"Fout bij starten kalenderupdate: {e}")
             logger.error(traceback.format_exc())
-            
-            if show_errors:
-                QMessageBox.warning(self, "Fout bij bijwerken agenda",
-                                   f"Er is een fout opgetreden bij het bijwerken van de agenda:\n\n{str(e)}")
             return False
 
+    def _fetch_in_background(self, urls, show_errors):
+        events, error_messages = self._download_events(urls)
+        # Alles mislukt (en er is ook niets opgehaald) geldt als een fout.
+        result = None if (not events and error_messages) else events
+        try:
+            self.events_fetched.emit(result, error_messages, show_errors)
+        except RuntimeError:
+            pass  # widget is intussen afgesloten
+
+    def _on_events_fetched(self, events, error_messages, show_errors):
+        """Draait op de UI-thread zodra de achtergrondthread klaar is."""
+        self._fetching = False
+        try:
+            if events is None:
+                logger.warning("Agenda's ophalen mislukt: " + "; ".join(error_messages))
+                if self._events is None:
+                    # Er is nog nooit iets geladen: toon dat, en probeer het zo nog eens.
+                    self.eventList.clear()
+                    self.eventList.addItem("Fout bij laden van agenda. Probeer opnieuw.")
+                    if not self.events_loaded:
+                        QTimer.singleShot(10000, lambda: self.updateCalendar(show_errors=False))
+                # Is er al een eerdere (oudere) versie, dan blijft die gewoon zichtbaar.
+                if show_errors:
+                    QMessageBox.warning(self, "Fout bij ophalen agenda",
+                                        "Er zijn fouten opgetreden bij het ophalen van de agenda's:\n\n"
+                                        + "\n".join(error_messages))
+            else:
+                self._events = events
+                self.events_loaded = True
+                self.updateCalendarWithEvents(events)
+                self.updateEventList()
+                logger.info("Kalender succesvol bijgewerkt")
+        except Exception as e:
+            logger.error(f"Fout bij verwerken van opgehaalde agenda: {e}")
+            logger.error(traceback.format_exc())
+
+        again, self._refetch_requested = self._refetch_requested, None
+        if again is not None:
+            self.updateCalendar(show_errors=again)
+
     def fetchEvents(self, show_errors=False):
-        """Haal gebeurtenissen op van ical URLs."""
+        """De laatst opgehaalde events (uit de cache). Doet zelf geen netwerkverkeer meer."""
+        return self._events or []
+
+    def _download_events(self, urls):
+        """Haal de events op van alle iCal-URL's. Blokkeert, dus alleen in een achtergrondthread
+        aanroepen. Raakt de UI niet aan. Geeft (events, foutmeldingen) terug."""
         all_events = []
-        
-        if not self.config['ical_urls']:
-            logger.warning("Geen iCal URLs geconfigureerd")
-            return all_events
-        
         error_messages = []
-            
-        for url in self.config['ical_urls']:
+
+        for url in urls:
             try:
                 logger.info(f"Events ophalen van: {url}")
-                
-                # Timeout instellen om te voorkomen dat de widget vastloopt bij langzame verbindingen
                 response = requests.get(url, timeout=10)
-                
+
                 if response.status_code != 200:
                     error_msg = f"URL {url} retourneerde status code {response.status_code}"
                     logger.error(error_msg)
                     error_messages.append(error_msg)
                     continue
-                    
+
                 cal_text = response.text
-                
                 if not cal_text.startswith('BEGIN:VCALENDAR'):
                     error_msg = f"URL is geen geldige iCalendar feed: {url}"
                     logger.error(error_msg)
                     error_messages.append(error_msg)
                     continue
-                    
+
                 cal = icalendar.Calendar.from_ical(cal_text)
                 start_date = datetime.now().date()
                 end_date = start_date + timedelta(days=365)
                 events = recurring_ical_events.of(cal).between(start_date, end_date)
-                
+
                 for event in events:
                     event['CALENDAR_URL'] = url
-                    
+
                 all_events.extend(events)
                 logger.info(f"{len(events)} events opgehaald van {url}")
             except requests.exceptions.RequestException as e:
@@ -322,15 +352,8 @@ class GoogleCalendarWidget(DraggableWidget):
                 logger.error(error_msg)
                 logger.error(traceback.format_exc())
                 error_messages.append(error_msg)
-        
-        # Toon fouten als er geen events zijn opgehaald maar er wel URLs zijn geconfigureerd
-        if not all_events and error_messages and show_errors:
-            error_text = "\n".join(error_messages)
-            QMessageBox.warning(self, "Fout bij ophalen agenda", 
-                               f"Er zijn fouten opgetreden bij het ophalen van de agenda's:\n\n{error_text}")
-            return None
-                
-        return all_events
+
+        return all_events, error_messages
 
     def updateCalendarWithEvents(self, events):
         """Werk kalender bij met events en markeer datums met gebeurtenissen."""
@@ -373,20 +396,14 @@ class GoogleCalendarWidget(DraggableWidget):
             
             # Wis de huidige lijst
             self.eventList.clear()
-            
-            # Toon een laadmelding
-            loading_item = QListWidgetItem("Events laden...")
-            self.eventList.addItem(loading_item)
-            
-            # Force update van de UI
-            QApplication.processEvents()
-            
-            # Haal events op en filter op geselecteerde datum
-            events = self.fetchEvents()
-            
-            # Verwijder de laadmelding
-            self.eventList.clear()
-            
+
+            if self._events is None:
+                self.eventList.addItem("Agenda gebeurtenissen laden...")
+                return
+
+            # Filter de gecachte events op de geselecteerde datum
+            events = self._events
+
             if not events:
                 self.eventList.addItem("Geen events gevonden.")
                 return
@@ -433,20 +450,13 @@ class GoogleCalendarWidget(DraggableWidget):
         """Toon aankomende gebeurtenissen in de eventlijst."""
         try:
             self.eventList.clear()
-            
-            # Toon een laadmelding
-            loading_item = QListWidgetItem("Aankomende events laden...")
-            self.eventList.addItem(loading_item)
-            
-            # Force update van de UI
-            QApplication.processEvents()
-            
-            # Events ophalen
-            events = self.fetchEvents()
-            
-            # Verwijder de laadmelding
-            self.eventList.clear()
-            
+
+            if self._events is None:
+                self.eventList.addItem("Agenda gebeurtenissen laden...")
+                return
+
+            events = self._events
+
             if not events:
                 self.eventList.addItem("Geen aankomende events gevonden.")
                 return

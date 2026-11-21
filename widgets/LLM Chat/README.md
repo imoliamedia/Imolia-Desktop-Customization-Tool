@@ -28,6 +28,12 @@ The LLM Chat Widget is a customizable chat interface that integrates with OpenAI
    - Customize the widget colors if desired
 5. Click 'Save' to apply your settings.
 
+## Your API key
+
+- The key is stored **encrypted** (Windows DPAPI): only your Windows user can read it, and it is never written to a log. A key saved in plain text by an older version is converted automatically the next time the widget starts.
+- Questions are sent in the background, so the desktop stays responsive while the AI is answering; the Send button is disabled until the answer arrives.
+- The widget works with the `openai` version that ships with the app (0.27) as well as newer versions.
+
 ## Usage
 
 1. Activate the LLM Chat Widget from the Imolia Desktop Customization Tool's main interface.

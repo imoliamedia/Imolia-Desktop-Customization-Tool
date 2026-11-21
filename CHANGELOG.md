@@ -16,6 +16,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph. Includes GPU temperature and power draw (NVIDIA); CPU temperature
   is shown when LibreHardwareMonitor/OpenHardwareMonitor is running.
 
+### Changed
+- Widgets no longer rewrite their config file on every mouse movement while
+  being dragged or resized: changes are bundled and written shortly after
+  you stop (and always when the widget closes or the app quits).
+- The application log now rotates (2 MB, 3 backups) instead of growing without
+  limit - it had reached 93 MB.
+
+### Fixed
+- The Google Calendar widget no longer freezes the desktop while it downloads
+  your calendars (up to 10 seconds per calendar on a slow or missing
+  connection, and again on every click on a date). It now downloads in the
+  background and keeps showing the last loaded events if a refresh fails.
+- The LLM Chat widget could not connect at all with the bundled `openai`
+  0.27: it only supported the newer API. It now works with both, no longer
+  freezes while waiting for an answer, and no longer lists retired
+  non-chat models.
+- The LLM Chat widget stored your OpenAI API key as plain text in its config
+  file and wrote it to a debug log. The key is now stored encrypted with
+  Windows DPAPI (an existing plain-text key is converted automatically) and
+  is never logged.
+- Gmail Inbox and LLM Chat both use Windows DPAPI; when both were active they
+  overwrote each other's settings and encryption failed.
+- A stale `settings.json` with test data is no longer tracked in git, and the
+  extension modules (`*.pyd`) of the bundled embedded Python are now tracked,
+  so a fresh clone can build a complete app.
+
 ## [1.1.0] - 2026-09-06
 ### Added
 - New ESP32 Web Dashboard widget: embeds the web interface of any device on

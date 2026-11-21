@@ -329,6 +329,17 @@ A few things worth knowing about how this works in practice:
   pip, using an embedded Python interpreter when running as a packaged
   `.exe`. This requires internet access and can take a moment the first
   time a genuinely new dependency is needed.
+- **Packages with compiled parts (C extensions) can't be installed this way
+  in the packaged `.exe`.** The embedded Python used for installing is a
+  different version (3.13) than the one the `.exe` runs on (3.12), so a
+  compiled package it installs can't be imported. Pure-Python packages are
+  fine. For anything compiled (like `psutil`), add it to `hiddenimports` in
+  `Imolia Desktop Customizer.spec` so it's bundled when the app is built.
+  The same goes for standard-library modules that only a widget uses, such as
+  `imaplib` and `winsound` (used by the Gmail Inbox widget): PyInstaller only
+  includes what the app itself imports, so a widget needing more fails with
+  `ModuleNotFoundError` in the `.exe` until the module is listed there and the
+  app is rebuilt.
 - Pin exact versions. An unpinned or since-removed version can make
   installation fail outright - `requests==2.22.1` in this project's own
   `requirements.txt` did exactly that after PyPI stopped distributing it.
