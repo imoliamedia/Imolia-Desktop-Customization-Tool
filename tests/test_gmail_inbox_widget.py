@@ -44,7 +44,7 @@ FETCH_DATA = [
 def make_message(plain=None, html=None, attachments=(), subject='Test', sender='Anna <anna@example.nl>'):
     msg = EmailMessage()
     msg['From'] = sender
-    msg['To'] = 'me@gmail.com'
+    msg['To'] = 'test.persoon@example.com'
     msg['Subject'] = subject
     msg['Date'] = 'Fri, 20 Nov 2026 14:32:00 +0100'
     if plain is not None:
@@ -171,41 +171,41 @@ class TestFetchAccount(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def test_returns_unread_count_and_messages(self):
-        result = gmail.fetch_account('me@gmail.com', 'abcd efgh', max_messages=2)
+        result = gmail.fetch_account('test.persoon@example.com', 'abcd efgh', max_messages=2)
         self.assertTrue(result['ok'])
         self.assertEqual(result['unread'], 3)
         self.assertEqual(len(result['messages']), 2)
 
     def test_mailbox_is_opened_read_only_so_checking_never_marks_mail_as_read(self):
-        gmail.fetch_account('me@gmail.com', 'pw')
+        gmail.fetch_account('test.persoon@example.com', 'pw')
         calls = FakeIMAP.instances[0].calls
         self.assertIn(('select', 'INBOX', True), calls)
         fetch = [c for c in calls if c[:2] == ('uid', 'FETCH')][0]
         self.assertIn('BODY.PEEK', fetch[3])
 
     def test_app_password_spaces_are_stripped(self):
-        gmail.fetch_account('me@gmail.com', 'abcd efgh ijkl mnop')
-        self.assertIn(('login', 'me@gmail.com', 'abcdefghijklmnop'), FakeIMAP.instances[0].calls)
+        gmail.fetch_account('test.persoon@example.com', 'abcd efgh ijkl mnop')
+        self.assertIn(('login', 'test.persoon@example.com', 'abcdefghijklmnop'), FakeIMAP.instances[0].calls)
 
     def test_only_the_newest_messages_are_fetched(self):
         FakeIMAP.uids = b' '.join(str(n).encode() for n in range(1, 51))
-        gmail.fetch_account('me@gmail.com', 'pw', max_messages=3)
+        gmail.fetch_account('test.persoon@example.com', 'pw', max_messages=3)
         fetch = [c for c in FakeIMAP.instances[0].calls if c[:2] == ('uid', 'FETCH')][0]
         self.assertEqual(fetch[2], b'48,49,50')
 
     def test_empty_inbox(self):
         FakeIMAP.uids = b''
-        result = gmail.fetch_account('me@gmail.com', 'pw')
+        result = gmail.fetch_account('test.persoon@example.com', 'pw')
         self.assertTrue(result['ok'])
         self.assertEqual((result['unread'], result['messages']), (0, []))
 
     def test_bad_password_gives_friendly_error_instead_of_raising(self):
-        result = gmail.fetch_account('me@gmail.com', 'bad')
+        result = gmail.fetch_account('test.persoon@example.com', 'bad')
         self.assertFalse(result['ok'])
         self.assertIn('Inloggen mislukt', result['error'])
 
     def test_always_logs_out(self):
-        gmail.fetch_account('me@gmail.com', 'pw')
+        gmail.fetch_account('test.persoon@example.com', 'pw')
         self.assertEqual(FakeIMAP.instances[0].calls[-1], ('logout',))
 
 
@@ -263,7 +263,7 @@ class TestWithoutImaplib(unittest.TestCase):
 
     def test_checking_reports_a_clear_error_instead_of_crashing(self):
         with mock.patch.object(gmail, 'imaplib', None):
-            result = gmail.fetch_account('me@gmail.com', 'pw')
+            result = gmail.fetch_account('test.persoon@example.com', 'pw')
         self.assertFalse(result['ok'])
         self.assertIn('imaplib', result['error'])
 
@@ -283,18 +283,18 @@ class TestMailAction(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def test_mark_read_sets_seen_flag(self):
-        gmail.mail_action('me@gmail.com', 'pw', '102', 'read')
+        gmail.mail_action('test.persoon@example.com', 'pw', '102', 'read')
         self.assertIn(('uid', 'STORE', '102', '+FLAGS', '(\\Seen)'), FakeIMAP.instances[0].calls)
 
     def test_trash_adds_trash_label_and_never_expunges(self):
-        gmail.mail_action('me@gmail.com', 'pw', '102', 'trash')
+        gmail.mail_action('test.persoon@example.com', 'pw', '102', 'trash')
         calls = FakeIMAP.instances[0].calls
         self.assertIn(('uid', 'STORE', '102', '+X-GM-LABELS', '(\\Trash)'), calls)
         self.assertFalse([c for c in calls if 'EXPUNGE' in str(c).upper()])
 
     def test_unknown_action_is_rejected(self):
         with self.assertRaises(ValueError):
-            gmail.mail_action('me@gmail.com', 'pw', '102', 'explode')
+            gmail.mail_action('test.persoon@example.com', 'pw', '102', 'explode')
         self.assertEqual(FakeIMAP.instances[0].calls[-1], ('logout',))
 
 
@@ -437,24 +437,24 @@ class TestFetchMessage(unittest.TestCase):
         return FakeIMAP.instances[0].calls
 
     def test_returns_the_parsed_mail(self):
-        result = gmail.fetch_message('me@gmail.com', 'pw', '102')
+        result = gmail.fetch_message('test.persoon@example.com', 'pw', '102')
         self.assertTrue(result['ok'])
         self.assertEqual(result['subject'], 'Onderwerp')
         self.assertIn('Hallo wereld', result['text'])
         self.assertFalse(result['truncated'])
 
     def test_fetching_uses_peek_so_the_mail_is_not_marked_read_by_the_fetch(self):
-        gmail.fetch_message('me@gmail.com', 'pw', '102', mark_read=False)
+        gmail.fetch_message('test.persoon@example.com', 'pw', '102', mark_read=False)
         fetch = [c for c in self.calls() if c[:2] == ('uid', 'FETCH')][0]
         self.assertIn('BODY.PEEK[]', fetch[3])
         self.assertNotIn(('uid', 'STORE', '102', '+FLAGS', '(\\Seen)'), self.calls())
 
     def test_without_marking_the_inbox_is_opened_read_only(self):
-        gmail.fetch_message('me@gmail.com', 'pw', '102', mark_read=False)
+        gmail.fetch_message('test.persoon@example.com', 'pw', '102', mark_read=False)
         self.assertIn(('select', 'INBOX', True), self.calls())
 
     def test_marking_read_happens_after_a_successful_fetch(self):
-        gmail.fetch_message('me@gmail.com', 'pw', '102', mark_read=True)
+        gmail.fetch_message('test.persoon@example.com', 'pw', '102', mark_read=True)
         calls = self.calls()
         self.assertIn(('select', 'INBOX', False), calls)
         fetch_at = [i for i, c in enumerate(calls) if c[:2] == ('uid', 'FETCH')][0]
@@ -463,7 +463,7 @@ class TestFetchMessage(unittest.TestCase):
 
     def test_a_missing_mail_gives_an_error_and_is_not_marked(self):
         FakeIMAP.message = ('OK', [None])
-        result = gmail.fetch_message('me@gmail.com', 'pw', '999', mark_read=True)
+        result = gmail.fetch_message('test.persoon@example.com', 'pw', '999', mark_read=True)
         self.assertFalse(result['ok'])
         self.assertIn('bestaat niet meer', result['error'])
         self.assertFalse([c for c in self.calls() if c[:2] == ('uid', 'STORE')])
@@ -471,31 +471,31 @@ class TestFetchMessage(unittest.TestCase):
     def test_a_very_large_mail_is_flagged_as_truncated(self):
         raw = make_message(plain='begin van een enorme mail')
         FakeIMAP.message = message_response(raw, size=50_000_000)
-        self.assertTrue(gmail.fetch_message('me@gmail.com', 'pw', '102')['truncated'])
+        self.assertTrue(gmail.fetch_message('test.persoon@example.com', 'pw', '102')['truncated'])
 
     def test_the_size_limit_is_requested_from_the_server(self):
-        gmail.fetch_message('me@gmail.com', 'pw', '102', max_bytes=1234)
+        gmail.fetch_message('test.persoon@example.com', 'pw', '102', max_bytes=1234)
         fetch = [c for c in self.calls() if c[:2] == ('uid', 'FETCH')][0]
         self.assertIn('<0.1234>', fetch[3])
 
     def test_bad_password_is_reported_not_raised(self):
-        result = gmail.fetch_message('me@gmail.com', 'bad', '102')
+        result = gmail.fetch_message('test.persoon@example.com', 'bad', '102')
         self.assertFalse(result['ok'])
         self.assertIn('Inloggen mislukt', result['error'])
 
     def test_always_logs_out(self):
-        gmail.fetch_message('me@gmail.com', 'pw', '102')
+        gmail.fetch_message('test.persoon@example.com', 'pw', '102')
         self.assertEqual(self.calls()[-1], ('logout',))
 
 
 def _wait_until(condition, timeout=5.0):
     end = time.time() + timeout
     while time.time() < end:
-        _app.processEvents()
-        if condition():
+        if condition():  # eerst kijken: onnodig Qt-events verwerken kan andere, nog openstaande dingen aanraken
             return True
+        _app.processEvents()
         time.sleep(0.01)
-    return False
+    return condition()
 
 
 def _wait_for_reader_threads():
@@ -507,7 +507,7 @@ def _wait_for_reader_threads():
 
 
 def _canned(plain='Hallo wereld', html='', subject='Onderwerp', ok=True, **extra):
-    data = {'email': 'me@gmail.com', 'uid': '102', 'ok': ok, 'error': None if ok else 'Geen verbinding met Gmail',
+    data = {'email': 'test.persoon@example.com', 'uid': '102', 'ok': ok, 'error': None if ok else 'Geen verbinding met Gmail',
             'subject': subject, 'sender_name': 'Anna', 'sender_addr': 'anna@example.nl',
             'date': '20 nov 2026 14:32', 'text': plain, 'html': html, 'attachments': [], 'truncated': False,
             'size': 100}
@@ -516,7 +516,7 @@ def _canned(plain='Hallo wereld', html='', subject='Onderwerp', ok=True, **extra
 
 
 class TestReadingInTheWidget(unittest.TestCase):
-    ADDRESS = 'me@gmail.com'
+    ADDRESS = 'test.persoon@example.com'
 
     @classmethod
     def setUpClass(cls):
@@ -526,12 +526,23 @@ class TestReadingInTheWidget(unittest.TestCase):
             mock.patch.object(gmail.GmailInboxWidget, 'load_config', lambda self: dict(config, accounts=list(config['accounts']))),
             mock.patch.object(gmail.GmailInboxWidget, 'save_config', lambda self: None),
             mock.patch.object(gmail.GmailInboxWidget, 'check_all', lambda self: None),  # nooit echt verbinden
+            # Ook als er toch iets in een thread of timer terechtkomt: nooit een echte verbinding naar Gmail.
+            mock.patch.object(gmail.imaplib, 'IMAP4_SSL', FakeIMAP),
         ):
             patcher.start()
             cls.addClassCleanup(patcher.stop)
-        cls.widget = gmail.GmailInboxWidget()
+        # De widget plant bij het aanmaken een controle over 1,5 s in (QTimer.singleShot). Die zou
+        # na deze tests, tijdens andere testbestanden, alsnog afgaan: niet laten plannen.
+        with mock.patch.object(gmail.QTimer, 'singleShot'):
+            cls.widget = gmail.GmailInboxWidget()
         cls.widget.resize(380, 400)
-        cls.addClassCleanup(cls.widget.close)
+        cls.addClassCleanup(cls._shutdown)
+
+    @classmethod
+    def _shutdown(cls):
+        cls.widget.check_timer.stop()
+        cls.widget.ui_timer.stop()
+        cls.widget.close()
 
     def setUp(self):
         w = self.widget
@@ -602,7 +613,7 @@ class TestReadingInTheWidget(unittest.TestCase):
         self.open_mail(_canned())
         self.widget._dispatch('reader_open', None)
         url = self.open_url.call_args[0][0].toString()
-        self.assertIn('authuser=me%40gmail.com', url)
+        self.assertIn('authuser=test.persoon%40example.com', url)
         self.assertTrue(url.endswith('#inbox/abc'))
 
     def test_html_mail_is_shown_sanitized_with_a_toggle_to_the_text_version(self):

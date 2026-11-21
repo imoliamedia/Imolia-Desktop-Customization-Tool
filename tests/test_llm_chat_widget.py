@@ -41,11 +41,11 @@ SECRET = 'sk-test-GEHEIM-0123456789'
 def _wait_until(condition, timeout=5.0):
     end = time.time() + timeout
     while time.time() < end:
-        _app.processEvents()
-        if condition():
+        if condition():  # eerst kijken: onnodig Qt-events verwerken kan andere, nog openstaande dingen aanraken
             return True
+        _app.processEvents()
         time.sleep(0.01)
-    return False
+    return condition()
 
 
 def _write_config(**values):
