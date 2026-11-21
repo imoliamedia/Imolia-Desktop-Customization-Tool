@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Gmail Inbox widget: read your mail inside the widget instead of opening a browser.
+  Opening a mail shows it in the widget (text, or a simplified, safe version of
+  formatted mails with images, scripts and frames blocked), marks it as read
+  (optional) and lets you trash it from there.
 - New Gmail Inbox widget: shows unread counts and the newest unread messages
   for several Gmail accounts at once, checks for new mail every X minutes,
   opens the right account/message in your browser, and can mark mail as read

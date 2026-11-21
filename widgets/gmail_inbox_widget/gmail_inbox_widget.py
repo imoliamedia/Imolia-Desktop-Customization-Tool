@@ -30,7 +30,18 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from email import policy
-from email.parser import BytesHeaderParser
+from email.parser import BytesHeaderParser, BytesParser
+from html import escape as html_escape, unescape as html_unescape
+
+# html.parser staat in een met PyInstaller gebouwde app alleen als hij in de .spec bij
+# hiddenimports staat. Ontbreekt hij (oudere build), dan laadt de widget gewoon en worden
+# mails met opmaak als gewone tekst getoond in plaats van dat de hele widget niet start.
+try:
+    from html.parser import HTMLParser
+    _HAS_HTML_PARSER = True
+except ImportError:
+    HTMLParser = object
+    _HAS_HTML_PARSER = False
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote
 
@@ -38,7 +49,7 @@ from PyQt5.QtCore import Qt, QObject, QPointF, QRectF, QTimer, QUrl, pyqtSignal
 from PyQt5.QtGui import (QColor, QDesktopServices, QFont, QFontMetrics, QPainter)
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QColorDialog, QComboBox, QDialog, QDoubleSpinBox,
                              QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
-                             QListWidget, QMessageBox, QPushButton, QSpinBox, QVBoxLayout)
+                             QListWidget, QMessageBox, QPushButton, QSpinBox, QTextBrowser, QVBoxLayout)
 from src.utils.draggable_widget import DraggableWidget, WidgetSettingsDialog
 
 logger = logging.getLogger('DesktopCustomizer.GmailInboxWidget')
@@ -65,6 +76,7 @@ MAIL_H = 42
 NOTE_H = 24
 PAD = 10
 FLASH_SECONDS = 15
+READER_META_H = 40       # hoogte van het afzender/datum-blok boven een geopende mail
 
 WINDOWS_MEDIA_DIR = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'Media')
 
@@ -100,6 +112,7 @@ DEFAULT_CONFIG = {
     'accounts': [],              # [{'email': ..., 'password': 'dpapi:...'}]
     'check_interval_minutes': 2,
     'max_messages': 5,           # aantal ongelezen berichten per account in de lijst
+    'mark_read_on_open': True,   # een mail telt als gelezen zodra je hem opent (zoals in Gmail zelf)
     'notify_sound': True,
     'sound_file': _default_sound(),   # pad naar een .wav; leeg = Windows-pieptoon
     'muted': False,              # "niet storen": geen geluid en geen knipperen
@@ -335,6 +348,222 @@ def mail_action(address, password, uid, action):
         _close(imap)
 
 
+# --------------------------------------------------------------------------
+# Een mail lezen in de widget
+# --------------------------------------------------------------------------
+
+MAX_MESSAGE_BYTES = 2_000_000   # grotere mails worden afgekapt en zo getoond
+MAX_RENDER_CHARS = 300_000      # zoveel tekst tonen we maximaal; meer laat de weergave vastlopen
+_SIZE_RE = re.compile(rb'RFC822\.SIZE (\d+)')
+_URL_RE = re.compile(r'https?://[^\s<>"\']+')
+
+# Van een HTML-mail blijven alleen deze tags over. Andere tags verdwijnen (hun tekst
+# blijft staan); script, stijl, frames en dergelijke verdwijnen mét inhoud. Afbeeldingen
+# worden nooit geladen: dat voorkomt volgpixels en houdt het snel.
+_ALLOWED_TAGS = {'a', 'b', 'strong', 'i', 'em', 'u', 's', 'br', 'hr', 'p', 'div', 'span', 'ul', 'ol', 'li',
+                 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                 'blockquote', 'pre', 'code', 'font', 'center', 'small', 'big', 'sup', 'sub'}
+_VOID_TAGS = {'br', 'hr'}
+_DROP_WITH_CONTENT = {'script', 'style', 'head', 'title', 'iframe', 'object', 'embed', 'svg', 'noscript',
+                      'template', 'select', 'textarea', 'button', 'math'}
+_ALLOWED_ATTRS = {'href', 'colspan', 'rowspan', 'align', 'valign', 'width', 'height', 'bgcolor', 'color',
+                  'size', 'face', 'style', 'border', 'cellpadding', 'cellspacing'}
+_SAFE_LINKS = ('http://', 'https://', 'mailto:')
+_UNSAFE_STYLE_RE = re.compile(r'url\s*\(|expression|javascript|behavior|@import', re.IGNORECASE)
+
+
+def _clean_style(value):
+    declarations = [d.strip() for d in value.split(';') if d.strip()]
+    return '; '.join(d for d in declarations if not _UNSAFE_STYLE_RE.search(d))
+
+
+class _HtmlSanitizer(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out = []
+        self._dropping = []  # stapel van tags waarvan de inhoud wordt weggegooid
+
+    def handle_starttag(self, tag, attrs):
+        if tag in _DROP_WITH_CONTENT:
+            self._dropping.append(tag)
+            return
+        if self._dropping:
+            return
+        if tag == 'img':
+            alt = (dict(attrs).get('alt') or '').strip()
+            self.out.append(f"<i>[{html_escape(alt) if alt else 'afbeelding'}]</i>")
+            return
+        if tag not in _ALLOWED_TAGS:
+            return
+        parts = []
+        for name, value in attrs:
+            name = (name or '').lower()
+            value = value or ''
+            if name not in _ALLOWED_ATTRS:
+                continue
+            if name == 'href' and not value.strip().lower().startswith(_SAFE_LINKS):
+                continue
+            if name == 'style':
+                value = _clean_style(value)
+                if not value:
+                    continue
+            parts.append(f' {name}="{html_escape(value, quote=True)}"')
+        self.out.append(f"<{tag}{''.join(parts)}>")
+
+    def handle_endtag(self, tag):
+        if self._dropping:
+            if tag == self._dropping[-1]:
+                self._dropping.pop()
+            return
+        if tag in _ALLOWED_TAGS and tag not in _VOID_TAGS:
+            self.out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        if not self._dropping:
+            self.out.append(html_escape(data))
+
+
+def _html_to_text(html):
+    """Noodoplossing zonder html.parser: haal de tekst uit een HTML-mail."""
+    html = re.sub(r'(?is)<(script|style|head|title|iframe|object|embed|svg|noscript)\b.*?</\1\s*>', '', html)
+    html = re.sub(r'(?i)<br\s*/?>|</(p|div|tr|li|h[1-6]|table|blockquote)>', '\n', html)
+    text = html_unescape(re.sub(r'(?s)<[^>]*>', '', html))
+    return re.sub(r'\n{3,}', '\n\n', text).strip()
+
+
+def sanitize_html(html):
+    """Maak van de HTML van een mail iets dat veilig in de widget getoond kan worden."""
+    if not _HAS_HTML_PARSER:
+        return text_to_html(_html_to_text(html))
+    parser = _HtmlSanitizer()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        return f"<pre>{html_escape(html)}</pre>"
+    return ''.join(parser.out)
+
+
+def text_to_html(text):
+    """Platte tekst netjes tonen, met aanklikbare links."""
+    escaped = html_escape(text, quote=True)
+
+    def link(match):
+        url, tail = match.group(0), ''
+        changed = True
+        while changed:
+            changed = False
+            for suffix in ('&gt;', '&lt;', '&quot;', '&#x27;'):
+                if url.endswith(suffix):
+                    url, tail, changed = url[:-len(suffix)], suffix + tail, True
+            while url and url[-1] in '.,;:!?)]}':
+                url, tail, changed = url[:-1], url[-1] + tail, True
+        return f'<a href="{url}">{url}</a>{tail}'
+
+    return '<div style="white-space: pre-wrap;">' + _URL_RE.sub(link, escaped) + '</div>'
+
+
+def _body_text(message, kind):
+    try:
+        part = message.get_body(preferencelist=(kind,))
+    except Exception:
+        part = None
+    if part is None:
+        return ''
+    try:
+        return part.get_content()
+    except Exception:
+        payload = part.get_payload(decode=True) or b''
+        try:
+            return payload.decode(part.get_content_charset() or 'utf-8', 'replace')
+        except LookupError:
+            return payload.decode('utf-8', 'replace')
+
+
+def _format_full_date(value):
+    try:
+        moment = parsedate_to_datetime(str(value))
+        if moment.tzinfo is not None:
+            moment = moment.astimezone()
+        return f"{moment.day} {MONTHS[moment.month - 1]} {moment.year} {moment:%H:%M}"
+    except Exception:
+        return ''
+
+
+def parse_message(raw):
+    """Zet de ruwe bytes van een mail om in wat de widget nodig heeft om hem te tonen."""
+    message = BytesParser(policy=policy.default).parsebytes(raw)
+    try:
+        subject = str(message['subject'] or '').strip() or '(geen onderwerp)'
+    except Exception:
+        subject = '(onleesbaar onderwerp)'
+    sender_name, sender_addr = '', ''
+    try:
+        addresses = getattr(message['From'], 'addresses', None)
+        if addresses:
+            sender_name, sender_addr = addresses[0].display_name, addresses[0].addr_spec
+        elif message['From']:
+            sender_name = str(message['From'])
+    except Exception:
+        sender_name = str(message.get('From', ''))
+    attachments = []
+    try:
+        for part in message.iter_attachments():
+            payload = part.get_payload(decode=True) or b''
+            attachments.append({'name': part.get_filename() or part.get_content_type(), 'size': len(payload)})
+    except Exception:
+        pass
+    return {
+        'subject': subject,
+        'sender_name': sender_name,
+        'sender_addr': sender_addr,
+        'date': _format_full_date(message['Date']) if message['Date'] else '',
+        'text': _body_text(message, 'plain'),
+        'html': _body_text(message, 'html'),
+        'attachments': attachments,
+    }
+
+
+def fetch_message(address, password, uid, mark_read=True, max_bytes=MAX_MESSAGE_BYTES):
+    """Haal één complete mail op om hem in de widget te lezen.
+
+    BODY.PEEK haalt de mail op zonder hem als gelezen te markeren. Alleen als dat gelukt is
+    en mark_read aan staat, markeren we hem daarna zelf als gelezen (net als Gmail dat doet
+    zodra je een mail opent). De mail blijft gewoon in je inbox staan.
+    """
+    result = {'email': address, 'uid': str(uid), 'ok': False, 'error': None}
+    imap = None
+    try:
+        imap = _connect(address, password)
+        status, _ = imap.select('INBOX', readonly=not mark_read)
+        if status != 'OK':
+            raise imaplib.IMAP4.error('Kan de inbox niet openen')
+        status, data = imap.uid('FETCH', str(uid), f'(RFC822.SIZE BODY.PEEK[]<0.{int(max_bytes)}>)')
+        if status != 'OK':
+            raise imaplib.IMAP4.error('Mail ophalen mislukt')
+        body, size = None, None
+        for item in data or []:
+            if isinstance(item, tuple) and len(item) >= 2:
+                body = item[1]
+                found = _SIZE_RE.search(item[0])
+                size = int(found.group(1)) if found else None
+                break
+        if body is None:
+            raise imaplib.IMAP4.error('Deze mail bestaat niet meer (misschien al verwijderd)')
+        result.update(parse_message(body))
+        result['truncated'] = bool(size and size > len(body))
+        result['size'] = size
+        if mark_read:
+            imap.uid('STORE', str(uid), '+FLAGS', '(\\Seen)')
+        result['ok'] = True
+    except Exception as e:
+        result['error'] = friendly_error(e)
+        logger.warning(f"Mail lezen voor {address} mislukt: {result['error']}")
+    finally:
+        if imap:
+            _close(imap)
+    return result
+
 def format_mail_date(timestamp, now=None):
     if not timestamp:
         return ''
@@ -356,6 +585,7 @@ class Bridge(QObject):
     result = pyqtSignal(dict)
     finished = pyqtSignal()
     action_done = pyqtSignal(str, bool, str)
+    message_ready = pyqtSignal(str, str, dict)  # (adres, uid, resultaat van fetch_message)
 
 
 class GmailInboxWidget(DraggableWidget):
@@ -372,6 +602,7 @@ class GmailInboxWidget(DraggableWidget):
         self._closing = False
         self._last_check = None
         self._message = None  # (tekst, tot-wanneer)
+        self._reader = None   # de geopende mail, of None als de lijst getoond wordt
         self._sync_states()
 
         self.setMinimumSize(260, 120)
@@ -382,6 +613,16 @@ class GmailInboxWidget(DraggableWidget):
         self.bridge.result.connect(self._on_result)
         self.bridge.finished.connect(self._on_finished)
         self.bridge.action_done.connect(self._on_action_done)
+        self.bridge.message_ready.connect(self._on_message_ready)
+
+        # De tekst van een geopende mail staat in een echt tekstvak: dat regelt scrollen,
+        # selecteren en kopieren. Links openen we zelf (en alleen http/https/mailto).
+        self.reader_view = QTextBrowser(self)
+        self.reader_view.setOpenLinks(False)
+        self.reader_view.setFrameShape(QTextBrowser.NoFrame)
+        self.reader_view.anchorClicked.connect(self._on_reader_link)
+        self.reader_view.highlighted[QUrl].connect(self._on_reader_hover)
+        self.reader_view.hide()
 
         self.check_timer = QTimer(self)
         self.check_timer.timeout.connect(self.check_all)
@@ -413,6 +654,8 @@ class GmailInboxWidget(DraggableWidget):
     def updateConfig(self, new_config):
         self.config.update(new_config)
         self._sync_states()
+        if self._reader and self._reader['key'] not in self.states:
+            self._close_reader()  # het account van de geopende mail is verwijderd
         self.check_timer.setInterval(self._interval_ms())
         self.save_config()
         self.update()
@@ -427,6 +670,7 @@ class GmailInboxWidget(DraggableWidget):
         super().resizeEvent(event)
         self.config['size'] = (self.width(), self.height())
         self.save_config()
+        self._layout_reader()
 
     def moveEvent(self, event):
         super().moveEvent(event)
@@ -527,8 +771,17 @@ class GmailInboxWidget(DraggableWidget):
 
     # -- acties op berichten ----------------------------------------------
 
-    def _do_action(self, address, uid, action):
+    def _drop_from_list(self, address, uid):
+        """Haal een bericht meteen uit de getoonde lijst. De controle erna corrigeert zo nodig."""
         state = self.states.get(address.lower())
+        if not state:
+            return
+        before = len(state['messages'])
+        state['messages'] = [m for m in state['messages'] if m['uid'] != uid]
+        if len(state['messages']) != before:  # een al gelezen mail telt niet nog eens mee
+            state['unread'] = max(0, state['unread'] - 1)
+
+    def _do_action(self, address, uid, action):
         # Geen bevestiging bij de prullenbak: het bericht blijft 30 dagen in
         # Gmail's Prullenbak staan en is online altijd terug te halen.
         try:
@@ -536,9 +789,7 @@ class GmailInboxWidget(DraggableWidget):
         except Exception:
             self._show_message('Wachtwoord kan niet worden gelezen')
             return
-        if state:  # meteen uit de lijst halen; de controle erna corrigeert zo nodig
-            state['messages'] = [m for m in state['messages'] if m['uid'] != uid]
-            state['unread'] = max(0, state['unread'] - 1)
+        self._drop_from_list(address, uid)
         self.update()
         threading.Thread(target=self._run_action, args=(address, password, uid, action),
                          name='GmailInboxAction', daemon=True).start()
@@ -616,6 +867,11 @@ class GmailInboxWidget(DraggableWidget):
 
         self._hits = []
         now = time.time()
+        if self._reader:
+            self._draw_reader(painter, now)
+            painter.end()
+            super().paintEvent(event)
+            return
         self._draw_header(painter, now)
 
         clip = QRectF(PAD, HEADER_H, self.width() - 2 * PAD, self.height() - HEADER_H - PAD)
@@ -814,6 +1070,205 @@ class GmailInboxWidget(DraggableWidget):
         if hit:
             self._add_hit(rect, hit[0], hit[1], 'Open in Gmail', clip)
 
+    # -- een mail lezen ----------------------------------------------------
+
+    def _open_reader(self, key, message):
+        address = self._display_address(key)
+        mark_read = bool(self.config.get('mark_read_on_open', True))
+        self._reader = {'key': key, 'address': address, 'message': message, 'status': 'loading',
+                        'data': None, 'error': None, 'show_html': False, 'marked_read': False,
+                        'mark_read': mark_read}
+        try:
+            password = self._account_password(address)
+        except Exception:
+            self._reader.update(status='error', error='Wachtwoord kan niet worden gelezen')
+        else:
+            threading.Thread(target=self._run_fetch_message, args=(address, password, message['uid'], mark_read),
+                             name='GmailInboxReader', daemon=True).start()
+        self._render_reader()
+        self._layout_reader()
+        self.update()
+
+    def _run_fetch_message(self, address, password, uid, mark_read):
+        result = fetch_message(address, password, uid, mark_read)
+        self._emit(self.bridge.message_ready, address, uid, result)
+        if mark_read and result['ok']:
+            # de lijst en de tellers meteen bijwerken: de mail is nu gelezen
+            self._emit(self.bridge.result, fetch_account(address, password, self.config.get('max_messages', 5)))
+
+    def _on_message_ready(self, address, uid, data):
+        reader = self._reader
+        if not reader or reader['address'] != address or reader['message']['uid'] != uid:
+            return  # intussen een andere mail geopend, of terug naar de lijst
+        reader['data'] = data
+        if data['ok']:
+            reader['status'] = 'ok'
+            reader['show_html'] = bool(data['html']) and not data['text'].strip()
+            if reader['mark_read']:
+                reader['marked_read'] = True
+                self._drop_from_list(address, uid)
+        else:
+            reader['status'] = 'error'
+            reader['error'] = data['error']
+        self._render_reader()
+        self.update()
+
+    def _close_reader(self):
+        self._reader = None
+        self.reader_view.hide()
+        self.reader_view.clear()
+        self.update()
+
+    def _layout_reader(self):
+        view = getattr(self, 'reader_view', None)
+        if view is None:
+            return
+        if getattr(self, '_reader', None):
+            top = HEADER_H + READER_META_H
+            view.setGeometry(PAD, top, max(10, self.width() - 2 * PAD), max(30, self.height() - top - PAD))
+            view.show()
+        else:
+            view.hide()
+
+    def _render_reader(self):
+        reader = self._reader
+        if not reader:
+            return
+        view = self.reader_view
+        data = reader['data']
+        scrollbars = ("QScrollBar:vertical { width: 8px; background: transparent; margin: 0; }"
+                      "QScrollBar::handle:vertical { background: rgba(128,128,128,140); border-radius: 4px; min-height: 24px; }"
+                      "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+                      "QScrollBar:horizontal { height: 8px; background: transparent; }"
+                      "QScrollBar::handle:horizontal { background: rgba(128,128,128,140); border-radius: 4px; }"
+                      "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }")
+        if reader['status'] == 'ok' and reader['show_html']:
+            # Mails met opmaak zijn gemaakt voor een witte achtergrond.
+            base = "QTextBrowser { background: #ffffff; color: #202124; border: none; border-radius: 8px; padding: 8px; }"
+        else:
+            base = (f"QTextBrowser {{ background: rgba(255,255,255,16); color: {self.config.get('color', '#ffffff')}; "
+                    "border: none; border-radius: 8px; padding: 8px; }")
+        view.setStyleSheet(base + scrollbars)
+        font = self._font(13)
+        view.setFont(font)
+        view.document().setDefaultFont(font)
+        # Links: het standaard donkerblauw is op de donkere achtergrond bijna onleesbaar.
+        on_white = reader['status'] == 'ok' and reader['show_html']
+        view.document().setDefaultStyleSheet('a { color: #1a0dab; }' if on_white else 'a { color: #8ab4f8; }')
+
+        if reader['status'] == 'loading':
+            view.setHtml('<i>Mail laden…</i>')
+        elif reader['status'] == 'error':
+            view.setHtml(f"<p>Kon deze mail niet openen:<br>{html_escape(reader['error'] or 'onbekende fout')}</p>")
+        else:
+            note = ''
+            if data.get('truncated'):
+                note = '<p><i>Deze mail is erg groot en is ingekort. Gebruik ↗ om hem helemaal in Gmail te lezen.</i></p>'
+            if reader['show_html']:
+                body = sanitize_html(data['html'][:MAX_RENDER_CHARS])
+            else:
+                shown = data['text'] if data['text'].strip() else '(Deze mail heeft geen tekst.)'
+                body = text_to_html(shown[:MAX_RENDER_CHARS])
+            view.setHtml(note + body)
+        view.verticalScrollBar().setValue(0)
+
+    def _on_reader_link(self, url):
+        if url.scheme().lower() in ('http', 'https', 'mailto'):
+            QDesktopServices.openUrl(url)
+
+    def _on_reader_hover(self, url):
+        # Laat zien waar een link echt naartoe gaat (handig tegen valse links).
+        self.reader_view.setToolTip(url.toString() if url.isValid() and not url.isEmpty() else '')
+
+    def _draw_reader(self, painter, now):
+        reader = self._reader
+        data = reader['data'] if reader['status'] == 'ok' else None
+        message = reader['message']
+        symbol_font = self._font(16, False, 'Segoe UI Symbol')
+        emoji_font = self._font(14, False, 'Segoe UI Emoji')
+
+        buttons = [('🗑', 'reader_trash', 'Naar prullenbak', emoji_font),
+                   ('↗', 'reader_open', 'Openen in Gmail (browser)', symbol_font)]
+        if data is not None and not reader['marked_read']:
+            buttons.append(('✓', 'reader_read', 'Markeer als gelezen', symbol_font))
+        if data is not None and data['html'] and data['text'].strip():
+            buttons.append(('Aa', 'reader_toggle', 'Wissel tussen opmaak en alleen tekst', self._font(12, True)))
+        buttons.append(('←', 'reader_back', 'Terug naar de lijst', symbol_font))
+
+        for index, (glyph, kind, tip, font) in enumerate(buttons):
+            if kind == 'reader_back':
+                rect = QRectF(PAD, 8, 26, 26)
+            else:
+                rect = QRectF(self.width() - PAD - 28 * (index + 1), 8, 26, 26)
+            hovered = self._hover is not None and rect.contains(self._hover)
+            if hovered:
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor(255, 255, 255, 30))
+                painter.drawRoundedRect(rect, 6, 6)
+            painter.setFont(font)
+            painter.setPen(self._text_color(235 if hovered else 170))
+            painter.drawText(rect, Qt.AlignCenter, glyph)
+            self._add_hit(rect, kind, None, tip)
+        right_edge = self.width() - PAD - 28 * (len(buttons) - 1) - 4
+
+        subject = data['subject'] if data else message['subject']
+        left = PAD + 32
+        title_font = self._font(14, True)
+        painter.setFont(title_font)
+        painter.setPen(self._text_color())
+        painter.drawText(QRectF(left, 4, max(10, right_edge - left), 24), Qt.AlignLeft | Qt.AlignVCenter,
+                         QFontMetrics(title_font).elidedText(subject, Qt.ElideRight, int(max(10, right_edge - left))))
+
+        account = next((a for a in self.config['accounts'] if a['email'].lower() == reader['key']), None)
+        label = account_label(account) if account else ''
+        if reader['status'] == 'loading':
+            state_text = 'Laden…'
+        elif reader['status'] == 'error':
+            state_text = 'Niet geopend'
+        else:
+            state_text = 'Gemarkeerd als gelezen' if reader['marked_read'] else 'Nog ongelezen'
+        painter.setFont(self._font(10))
+        painter.setPen(self._text_color(140))
+        painter.drawText(QRectF(left, 26, max(10, right_edge - left), 14), Qt.AlignLeft | Qt.AlignVCenter,
+                         f"{label} · {state_text}" if label else state_text)
+
+        # afzender, datum en bijlagen
+        top = HEADER_H
+        if data:
+            sender = data['sender_name'] or data['sender_addr'] or '(onbekend)'
+            address = f"  <{data['sender_addr']}>" if data['sender_name'] and data['sender_addr'] else ''
+            when = data['date']
+        else:
+            sender, address, when = message['sender'], '', format_mail_date(message['timestamp'])
+        width = self.width() - 2 * PAD - 4
+        painter.setFont(self._font(12, True))
+        sender_fm = QFontMetrics(self._font(12, True))
+        sender_text = sender_fm.elidedText(sender, Qt.ElideRight, int(width * 0.6))
+        painter.setPen(self._text_color())
+        painter.drawText(QRectF(PAD + 2, top + 2, width, 18), Qt.AlignLeft | Qt.AlignVCenter, sender_text)
+        if address:
+            used = sender_fm.horizontalAdvance(sender_text)
+            small_fm = QFontMetrics(self._font(11))
+            painter.setFont(self._font(11))
+            painter.setPen(self._text_color(130))
+            room = int(width - used - 90)
+            if room > 40:
+                painter.drawText(QRectF(PAD + 2 + used, top + 2, room, 18), Qt.AlignLeft | Qt.AlignVCenter,
+                                 small_fm.elidedText(address, Qt.ElideRight, room))
+        if when:
+            painter.setFont(self._font(10.5))
+            painter.setPen(self._text_color(130))
+            painter.drawText(QRectF(PAD + 2, top + 2, width, 18), Qt.AlignRight | Qt.AlignVCenter, when)
+        if data and data['attachments']:
+            names = ', '.join(a['name'] for a in data['attachments'][:3])
+            more = f" +{len(data['attachments']) - 3}" if len(data['attachments']) > 3 else ''
+            count = len(data['attachments'])
+            line = f"📎 {count} bijlage{'n' if count != 1 else ''}: {names}{more} (open in Gmail om te downloaden)"
+            painter.setFont(self._font(10.5, False, 'Segoe UI Emoji'))
+            painter.setPen(self._text_color(150))
+            painter.drawText(QRectF(PAD + 2, top + 21, width, 16), Qt.AlignLeft | Qt.AlignVCenter,
+                             QFontMetrics(self._font(10.5, False, 'Segoe UI Emoji')).elidedText(line, Qt.ElideRight, int(width)))
+
     # -- muis -------------------------------------------------------------
 
     def _hit_at(self, pos):
@@ -842,6 +1297,8 @@ class GmailInboxWidget(DraggableWidget):
         self.update()
 
     def wheelEvent(self, event):
+        if self._reader:
+            return  # in een geopende mail scrolt het tekstvak zelf
         self._scroll -= event.angleDelta().y() / 120 * 40
         self.update()
 
@@ -869,7 +1326,22 @@ class GmailInboxWidget(DraggableWidget):
             self.update()
         elif kind == 'open_mail':
             key, message = payload
-            QDesktopServices.openUrl(QUrl(gmail_url(self._display_address(key), message['thrid'])))
+            self._open_reader(key, message)  # lezen in de widget, geen browser meer
+        elif kind == 'reader_back':
+            self._close_reader()
+        elif kind == 'reader_trash' and self._reader:
+            self._do_action(self._reader['address'], self._reader['message']['uid'], 'trash')
+            self._close_reader()
+        elif kind == 'reader_read' and self._reader and not self._reader['marked_read']:
+            self._reader['marked_read'] = True
+            self._do_action(self._reader['address'], self._reader['message']['uid'], 'read')
+            self.update()
+        elif kind == 'reader_open' and self._reader:
+            QDesktopServices.openUrl(QUrl(gmail_url(self._reader['address'], self._reader['message']['thrid'])))
+        elif kind == 'reader_toggle' and self._reader and self._reader['status'] == 'ok':
+            self._reader['show_html'] = not self._reader['show_html']
+            self._render_reader()
+            self.update()
         elif kind in ('mark_read', 'trash'):
             key, uid = payload
             self._do_action(self._display_address(key), uid, 'read' if kind == 'mark_read' else 'trash')
@@ -1024,6 +1496,11 @@ class GmailSettingsDialog(WidgetSettingsDialog):
         row.addWidget(self.max_messages)
         behavior_layout.addLayout(row)
 
+        self.mark_read_check = QCheckBox('Mail als gelezen markeren zodra ik hem open')
+        self.mark_read_check.setToolTip('Uit: de mail blijft ongelezen tot je zelf op ✓ drukt.')
+        self.mark_read_check.setChecked(bool(config.get('mark_read_on_open', True)))
+        behavior_layout.addWidget(self.mark_read_check)
+
         behavior_group.setLayout(behavior_layout)
         layout.addWidget(behavior_group)
 
@@ -1145,6 +1622,7 @@ class GmailSettingsDialog(WidgetSettingsDialog):
             'accounts': self.accounts,
             'check_interval_minutes': int(self.update_interval.value()),
             'max_messages': self.max_messages.value(),
+            'mark_read_on_open': self.mark_read_check.isChecked(),
             'notify_sound': self.sound_check.isChecked(),
             'sound_file': self.sound_combo.currentData() or '',
             'bg_opacity': self.bg_opacity.value(),
