@@ -24,9 +24,44 @@ import importlib
 import importlib.metadata
 from pathlib import Path
 from datetime import datetime, timedelta
-from distutils.version import LooseVersion
+from functools import total_ordering
 
 logger = logging.getLogger('DesktopCustomizer.PackageManager')
+
+
+@total_ordering
+class LooseVersion:
+    """Vervanger voor distutils.version.LooseVersion, met hetzelfde vergelijkgedrag.
+
+    De module distutils is in Python 3.12 verwijderd. Eerder deed `from distutils.version
+    import LooseVersion` het hier alleen nog doordat setuptools toevallig geïnstalleerd
+    was: in een schone Python 3.12 (zoals de CI) kon deze hele module niet eens geladen
+    worden. Versies worden in stukken gehakt (getallen en letters); een vergelijking
+    tussen een getal en een tekst geeft net als vroeger een TypeError, wat de
+    aanroepers al afvangen.
+    """
+    _component_re = re.compile(r'(\d+ | [a-z]+ | \.)', re.VERBOSE)
+
+    def __init__(self, vstring):
+        self.vstring = str(vstring)
+        parts = [part for part in self._component_re.split(self.vstring) if part and part != '.']
+        self.version = [int(part) if part.isdigit() else part for part in parts]
+
+    def __eq__(self, other):
+        if not isinstance(other, LooseVersion):
+            other = LooseVersion(other)
+        return self.version == other.version
+
+    def __lt__(self, other):
+        if not isinstance(other, LooseVersion):
+            other = LooseVersion(other)
+        return self.version < other.version
+
+    def __hash__(self):
+        return hash(tuple(self.version))
+
+    def __repr__(self):
+        return f"LooseVersion('{self.vstring}')"
 
 class PackageManager:
     """

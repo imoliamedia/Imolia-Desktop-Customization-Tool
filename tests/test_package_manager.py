@@ -1,6 +1,44 @@
+import importlib.util
+import os
+import sys
 import unittest
+from unittest import mock
 
-from src.utils.package_manager import PackageManager
+from src.utils.package_manager import LooseVersion, PackageManager
+
+
+class TestLooseVersion(unittest.TestCase):
+    def test_compares_numbers_numerically_not_as_text(self):
+        self.assertTrue(LooseVersion('1.10') > LooseVersion('1.9'))
+        self.assertTrue(LooseVersion('5.15.6') >= LooseVersion('5.15.0'))
+        self.assertTrue(LooseVersion('7.2.2') > LooseVersion('7.2.1'))
+
+    def test_equal_and_not_equal(self):
+        self.assertEqual(LooseVersion('2.28.1'), LooseVersion('2.28.1'))
+        self.assertNotEqual(LooseVersion('2.28.1'), LooseVersion('2.28.2'))
+
+    def test_all_comparison_operators_used_by_the_package_manager(self):
+        low, high = LooseVersion('1.2.3'), LooseVersion('1.2.4')
+        self.assertTrue(low < high)
+        self.assertTrue(low <= high)
+        self.assertTrue(high > low)
+        self.assertTrue(high >= low)
+        self.assertFalse(high < low)
+
+    def test_mixing_a_number_and_text_raises_like_distutils_did(self):
+        # package_manager.py vangt dit af en gaat dan uit van "voldoet".
+        with self.assertRaises(TypeError):
+            LooseVersion('1.0') < LooseVersion('1.a')
+
+    def test_the_module_loads_without_distutils(self):
+        """Python 3.12 heeft geen distutils meer; zonder setuptools kon deze module niet laden."""
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            'src', 'utils', 'package_manager.py')
+        spec = importlib.util.spec_from_file_location('package_manager_without_distutils', path)
+        module = importlib.util.module_from_spec(spec)
+        with mock.patch.dict(sys.modules, {'distutils': None, 'distutils.version': None}):
+            spec.loader.exec_module(module)
+        self.assertTrue(module.LooseVersion('2.0') > module.LooseVersion('1.9'))
 
 
 class TestParsePackageSpec(unittest.TestCase):
