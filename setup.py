@@ -20,7 +20,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="desktop-customization-tool",
-    version="0.1.0",
+    version="1.1.0",
     author="Imolia Media",
     author_email="contact@imoliamedia.com",
     description="A customizable desktop overlay tool",
@@ -35,11 +35,12 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     install_requires=[
         "PyQt5>=5.15.0",
     ],

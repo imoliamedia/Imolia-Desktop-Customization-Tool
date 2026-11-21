@@ -2,6 +2,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+# ...behalve de Python-extensiemodules van de meegeleverde embedded Python: zonder
+# deze bestanden (_ssl, _ctypes, ...) is die map onvolledig en kan pip geen
+# widget-afhankelijkheden installeren. Ze hoorden altijd al in git te staan.
+!embedded_python/*.pyd
 .Python
 env/
 venv/
@@ -27,3 +31,9 @@ exe_launcher.py
 # terechtgekomen betekent meestal dat een widget lokaal getest is vanuit
 # deze map.
 widgets/**/*_config.json
+
+# Een settings.json in de projectmap is een restant van oude versies (de app bewaart
+# zijn instellingen in %APPDATA%). src/utils/settings.py neemt zo'n bestand bij de
+# eerste start over, dus testgegevens daarin horen niet in git (een vers gekloonde
+# versie kreeg er zo o.a. een klok van 3376x1335 pixels van).
+/settings.json
