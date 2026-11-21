@@ -10,6 +10,7 @@ jobs:
   build:
     runs-on: windows-latest
     strategy:
+      fail-fast: false  # ook de andere Python-versie laten draaien als één faalt
       matrix:
         # 3.9 = oudste ondersteunde versie, 3.12 = de versie waarop de app draait
         python-version: ["3.9", "3.12"]
@@ -24,5 +25,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     - name: Run tests
+      shell: bash
       run: |
-        python -m unittest discover tests
+        status=0
+        python -X faulthandler -m unittest discover tests > test-output.txt 2>&1 || status=$?
+        cat test-output.txt
+        if [ "$status" -ne 0 ]; then
+          # Zet het einde van de uitvoer ook in een annotatie, zodat je de fout ziet
+          # zonder de volledige logs te openen.
+          python -c "t=open('test-output.txt',encoding='utf-8',errors='replace').read()[-6000:]; print('::error title=Tests failed::'+t.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))"
+          exit $status
+        fi
