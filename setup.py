@@ -13,21 +13,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
     name="desktop-customization-tool",
-    version="1.1.0",
+    version="1.2.0",
     author="Imolia Media",
-    author_email="contact@imoliamedia.com",
+    author_email="info@imoliamedia.be",
     description="A customizable desktop overlay tool",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/imoliamedia/Imolia-Desktop-Customization-Tool.git",
-    packages=find_packages(),
+    # Alleen de code in src/ (src heeft geen eigen __init__.py, vandaar find_namespace_packages),
+    # en main.py uit de projectmap, dat het console-script hieronder gebruikt. De widgets en
+    # resources staan buiten src/: het commando werkt dus vanuit een clone met
+    # `pip install -e .` (editable), niet vanuit een los geinstalleerd wheel.
+    packages=find_namespace_packages(include=["src", "src.*"]),
+    py_modules=["main"],
     license="GNU General Public License v3.0",
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -46,7 +51,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "desktop-customizer=src.main:main",
+            "desktop-customizer=main:main",
         ],
     },
     include_package_data=True,

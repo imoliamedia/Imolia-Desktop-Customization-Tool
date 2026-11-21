@@ -1,3 +1,18 @@
+# Copyright (C) 2024 Imolia Media
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 """
 System Monitor Widget for Imolia Desktop Customizer
 
@@ -157,6 +172,13 @@ class SystemMonitorSettingsDialog(WidgetSettingsDialog):
     def __init__(self, widget, parent=None):
         super().__init__(widget, parent)
 
+    def add_behavior_section(self, layout):
+        # De standaardsectie van WidgetSettingsDialog heeft een tweede
+        # verversingsveld in seconden. Dat werd hier genegeerd (alleen het
+        # veld in milliseconden hieronder telde), wat verwarrend was. Dit
+        # venster heeft daarom alleen het veld in add_custom_section().
+        pass
+
     def add_custom_section(self, layout):
         interval_layout = QHBoxLayout()
         interval_layout.addWidget(QLabel("Update interval (ms):"))
@@ -167,13 +189,9 @@ class SystemMonitorSettingsDialog(WidgetSettingsDialog):
         interval_layout.addWidget(self.interval_spin)
         layout.addLayout(interval_layout)
 
-        # get_config() hieronder roept super().get_config() aan, en die
-        # verwacht een self.color_button (zie WidgetSettingsDialog in
-        # draggable_widget.py). Zonder deze knop crashte "Opslaan" hier
-        # altijd met AttributeError - instellingen werden dus nooit
-        # bewaard. Meteen ook een echte manier om de tekstkleur te
-        # wijzigen, wat voorheen nergens in deze dialoog kon, ook al
-        # ondersteunt de widget het via updateStyle().
+        # Een echte manier om de tekstkleur te wijzigen (de widget
+        # ondersteunt die via updateStyle(), maar het venster had er geen
+        # veld voor).
         color_layout = QHBoxLayout()
         color_layout.addWidget(QLabel("Tekstkleur:"))
         self.color_button = QPushButton()
@@ -184,24 +202,21 @@ class SystemMonitorSettingsDialog(WidgetSettingsDialog):
 
     def choose_color(self):
         # Overgenomen van clock_widget.py: setStyleSheet() werkt de
-        # QPalette van de knop niet bij, terwijl WidgetSettingsDialog's
-        # standaard get_config() de kleur juist via die palette probeert
-        # te lezen - dat geeft dus altijd de verkeerde (standaard) kleur
-        # terug. Door de gekozen kleur hier expliciet in de widget-config
-        # te zetten, en die hieronder in get_config() te gebruiken i.p.v.
-        # de palette, wordt de juiste kleur bewaard.
+        # QPalette van de knop niet bij, dus de gekozen kleur wordt expliciet
+        # in de widget-config gezet en in get_config() daaruit gelezen.
         color = QColorDialog.getColor(QColor(self.widget.config.get('color', 'white')))
         if color.isValid():
             self.color_button.setStyleSheet(f"background-color: {color.name()};")
             self.widget.config['color'] = color.name()
 
     def get_config(self):
-        config = super().get_config()
-        config.update({
+        # Bewust zonder super().get_config(): die leest de kleur uit de
+        # QPalette van de knop (verkeerde waarde) en het seconden-veld dat
+        # in dit venster niet meer bestaat.
+        return {
             'update_interval': self.interval_spin.value(),
             'color': self.widget.config.get('color', 'white')
-        })
-        return config
+        }
 
 # Important: The class must be named 'Widget' for the loader to recognize it
 Widget = SystemMonitorWidget
